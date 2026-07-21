@@ -1,0 +1,20 @@
+{
+  "currency": "₹",
+  "monthlyBudget": 50000,
+  "budgets": {
+    "food": 8000,
+    "travel": 5000,
+    "groceries": 6000,
+    "shopping": 5000,
+    "lifestyle": 3000,
+    "clothes": 3000,
+    "rent": 15000,
+    "bills": 4000,
+    "entertainment": 3000,
+    "subscriptions": 2000,
+    "investments": 10000,
+    "health": 3000,
+    "education": 2000,
+    "other": 2000
+  }
+}

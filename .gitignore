@@ -1,5 +1,7 @@
 config.json
 tracksy.db
+data.js
 __pycache__/
 .pytest_cache/
 *.pyc
+.kiro/
