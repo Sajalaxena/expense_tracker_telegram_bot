@@ -1,0 +1,5 @@
+config.json
+tracksy.db
+__pycache__/
+.pytest_cache/
+*.pyc

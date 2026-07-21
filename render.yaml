@@ -1,0 +1,13 @@
+services:
+  - type: worker
+    name: tracksy-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: MONTHLY_BUDGET
+        value: "50000"
+      - key: CURRENCY
+        value: "₹"

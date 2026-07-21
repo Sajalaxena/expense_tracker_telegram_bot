@@ -1,0 +1,3 @@
+window.EXPENSE_DATA = [{"id": 8, "date": "2026-07-22", "category": "groceries", "amount": 666.0, "note": "Zepto oats home", "type": "expense"}, {"id": 2, "date": "2026-07-21", "category": "shopping", "amount": 2400.0, "note": "myntra clothes", "type": "expense"}, {"id": 1, "date": "2026-07-21", "category": "travel", "amount": 500.0, "note": "Cab noida to mbd", "type": "expense"}];
+window.EXPENSE_CONFIG = {"currency": "₹", "monthlyBudget": 50000, "budgets": {"food": 8000, "travel": 5000, "groceries": 6000, "shopping": 5000, "lifestyle": 3000, "clothes": 3000, "rent": 15000, "bills": 4000, "entertainment": 3000, "subscriptions": 2000, "investments": 10000, "health": 3000, "education": 2000, "other": 2000}};
+window.EXPENSE_SUBSCRIPTIONS = [];
