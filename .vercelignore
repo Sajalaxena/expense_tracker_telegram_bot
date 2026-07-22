@@ -1,0 +1,11 @@
+main.py
+src/
+tests/
+*.db
+.kiro/
+.pytest_cache/
+__pycache__/
+config.json
+config.prod.json
+Dockerfile
+render.yaml
