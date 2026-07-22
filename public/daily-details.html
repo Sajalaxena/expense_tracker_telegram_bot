@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracksy — Daily Spending Details</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0e14;
+  --card: rgba(22, 27, 45, 0.8);
+  --border: rgba(99, 102, 241, 0.15);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --muted: #64748b;
+  --blue: #6366f1;
+  --purple: #8b5cf6;
+  --pink: #ec4899;
+  --green: #10b981;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.06) 0%, transparent 50%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  padding: 40px;
+  min-height: 100vh;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.container { max-width: 900px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 32px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  font-size: 1.5rem; font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.controls { display: flex; gap: 12px; align-items: center; }
+
+.controls select, .controls a {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 20px; font-size: 0.85rem; border-radius: 24px; cursor: pointer;
+  text-decoration: none; transition: all 0.2s;
+}
+.controls select:hover, .controls a:hover { border-color: rgba(99,102,241,0.4); }
+.controls select:focus { outline: none; border-color: var(--blue); }
+
+.month-total {
+  text-align: center; margin-bottom: 32px; padding: 24px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+}
+.month-total .amount {
+  font-size: 2.5rem; font-weight: 800; color: var(--blue);
+  font-family: 'SF Mono', Consolas, monospace; letter-spacing: -1px;
+}
+.month-total .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+
+.day-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  margin-bottom: 12px; overflow: hidden; transition: all 0.3s ease;
+}
+.day-card:hover { border-color: rgba(99,102,241,0.3); transform: translateX(4px); }
+
+.day-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; cursor: pointer;
+}
+.day-header .date { font-weight: 600; font-size: 0.9rem; }
+.day-header .weekday { color: var(--muted); font-size: 0.75rem; margin-left: 8px; }
+.day-header .total {
+  font-family: 'SF Mono', Consolas, monospace; font-weight: 700; font-size: 0.9rem;
+}
+.day-header .total.high { color: var(--pink); }
+.day-header .total.medium { color: var(--yellow); }
+.day-header .total.low { color: var(--green); }
+
+.day-items { padding: 0 20px 16px; }
+.day-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; margin-top: 6px; border-radius: 8px;
+  background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.06);
+}
+.day-item .cat { font-size: 0.8rem; text-transform: capitalize; color: var(--text2); }
+.day-item .note { font-size: 0.75rem; color: var(--muted); margin-left: 8px; }
+.day-item .amt {
+  font-family: 'SF Mono', Consolas, monospace; font-size: 0.8rem; font-weight: 600; color: var(--text);
+}
+
+.empty { text-align: center; padding: 60px; color: var(--muted); font-size: 0.9rem; }
+
+@media (max-width: 768px) {
+  body { padding: 20px; }
+  .month-total .amount { font-size: 1.8rem; }
+  header { flex-direction: column; gap: 12px; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Daily Spending</h1>
+    <div class="controls">
+      <select id="monthSelect"></select>
+      <a href="dashboard.html">← Dashboard</a>
+    </div>
+  </header>
+
+  <div class="month-total">
+    <div class="label">Total Spent This Month</div>
+    <div class="amount" id="monthAmount">₹0</div>
+  </div>
+
+  <div id="daysList"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== Fetch data from API and initialize page =====
+  fetch('/api/data')
+    .then(function(response) {
+      if (!response.ok) throw new Error('Failed to fetch data');
+      return response.json();
+    })
+    .then(function(json) {
+      initDailyDetails(json.expenses || [], json.config || {});
+    })
+    .catch(function(err) {
+      console.error('Error loading daily details data:', err);
+      // Fall back to sample data for development/offline use
+      initDailyDetails(SAMPLE_DATA, SAMPLE_CONFIG);
+    });
+
+  // ===== Sample Data (used as fallback when API is unavailable) =====
+  var SAMPLE_DATA = [
+    {id:1, date:"2025-01-03", category:"food", amount:450, note:"swiggy dinner", type:"expense"},
+    {id:2, date:"2025-01-05", category:"travel", amount:120, note:"uber to office", type:"expense"},
+    {id:3, date:"2025-01-07", category:"groceries", amount:2300, note:"bigbasket weekly", type:"expense"},
+    {id:4, date:"2025-01-08", category:"bills", amount:1500, note:"wifi recharge", type:"expense"},
+    {id:5, date:"2025-01-10", category:"food", amount:350, note:"zomato lunch", type:"expense"},
+    {id:6, date:"2025-01-12", category:"travel", amount:80, note:"metro pass", type:"expense"},
+    {id:7, date:"2025-01-14", category:"luxuries", amount:599, note:"netflix subscription", type:"expense"},
+    {id:8, date:"2025-01-15", category:"income", amount:50000, note:"salary credited", type:"income"},
+    {id:9, date:"2025-01-16", category:"rent", amount:15000, note:"rent january", type:"expense"},
+    {id:10, date:"2025-01-18", category:"health", amount:800, note:"pharmacy medicine", type:"expense"},
+    {id:11, date:"2025-01-20", category:"food", amount:250, note:"chai coffee", type:"expense"},
+    {id:12, date:"2025-01-22", category:"clothes", amount:1999, note:"myntra shirt", type:"expense"},
+    {id:13, date:"2025-01-24", category:"education", amount:499, note:"udemy course", type:"expense"},
+    {id:14, date:"2025-01-25", category:"investments", amount:5000, note:"sip mutual fund", type:"expense"},
+    {id:15, date:"2025-01-27", category:"groceries", amount:1800, note:"zepto fruits vegetables", type:"expense"},
+    {id:16, date:"2025-01-28", category:"food", amount:600, note:"restaurant dinner", type:"expense"},
+    {id:17, date:"2024-12-05", category:"food", amount:380, note:"swiggy breakfast", type:"expense"},
+    {id:18, date:"2024-12-10", category:"travel", amount:200, note:"ola cab", type:"expense"},
+    {id:19, date:"2024-12-15", category:"rent", amount:15000, note:"rent december", type:"expense"},
+    {id:20, date:"2024-12-20", category:"bills", amount:2000, note:"electricity bill", type:"expense"},
+    {id:21, date:"2024-12-25", category:"groceries", amount:3500, note:"dmart monthly", type:"expense"}
+  ];
+
+  var SAMPLE_CONFIG = { currency: '₹', monthlyBudget: 50000 };
+
+  function initDailyDetails(expenses, apiConfig) {
+    var data = expenses;
+    var config = {
+      currency: apiConfig.currency || '₹',
+      monthlyBudget: apiConfig.monthlyBudget || 50000
+    };
+
+    function indianFormat(amount) {
+      var currency = config.currency || '₹';
+      var parts = Math.abs(amount).toFixed(2).split('.');
+      var intPart = parts[0];
+      var decPart = parts[1];
+      if (decPart === '00') decPart = '';
+      else if (decPart.charAt(1) === '0') decPart = decPart.charAt(0);
+      var result = '';
+      if (intPart.length <= 3) { result = intPart; }
+      else {
+        var last3 = intPart.slice(-3);
+        var remaining = intPart.slice(0, -3);
+        var groups = [];
+        while (remaining.length > 2) { groups.unshift(remaining.slice(-2)); remaining = remaining.slice(0, -2); }
+        if (remaining.length > 0) groups.unshift(remaining);
+        result = groups.join(',') + ',' + last3;
+      }
+      var formatted = currency + result;
+      if (decPart) formatted += '.' + decPart;
+      return formatted;
+    }
+
+    function getMonthStr(dateStr) { return dateStr.substring(0, 7); }
+
+    function getAvailableMonths() {
+      var set = {};
+      for (var i = 0; i < data.length; i++) { set[getMonthStr(data[i].date)] = true; }
+      var months = Object.keys(set); months.sort(); months.reverse();
+      return months;
+    }
+
+    function getCurrentMonth() {
+      var now = new Date();
+      return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+
+    function getMonthLabel(m) {
+      var p = m.split('-');
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      return months[parseInt(p[1],10)-1] + ' ' + p[0];
+    }
+
+    function populateSelect() {
+      var select = document.getElementById('monthSelect');
+      var months = getAvailableMonths();
+      var current = getCurrentMonth();
+      if (months.indexOf(current) === -1) months.unshift(current);
+      select.innerHTML = '';
+      for (var i = 0; i < months.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = months[i]; opt.textContent = getMonthLabel(months[i]);
+        if (months[i] === current) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', function() { render(select.value); });
+      return months.indexOf(current) >= 0 ? current : months[0] || current;
+    }
+
+    function render(monthStr) {
+      var expenses = data.filter(function(t) { return getMonthStr(t.date) === monthStr && t.type === 'expense'; });
+
+      // Month total
+      var total = 0;
+      for (var i = 0; i < expenses.length; i++) total += expenses[i].amount;
+      document.getElementById('monthAmount').textContent = indianFormat(total);
+
+      // Group by date
+      var byDate = {};
+      for (var j = 0; j < expenses.length; j++) {
+        var dt = expenses[j].date;
+        if (!byDate[dt]) byDate[dt] = [];
+        byDate[dt].push(expenses[j]);
+      }
+
+      // Sort dates descending
+      var dates = Object.keys(byDate).sort().reverse();
+      var container = document.getElementById('daysList');
+
+      if (dates.length === 0) {
+        container.innerHTML = '<div class="empty">No expenses recorded this month.<br>Send a message to the bot to start tracking!</div>';
+        return;
+      }
+
+      // Find max day total for color coding
+      var maxDayTotal = 0;
+      for (var k = 0; k < dates.length; k++) {
+        var dayTotal = 0;
+        for (var m = 0; m < byDate[dates[k]].length; m++) dayTotal += byDate[dates[k]][m].amount;
+        if (dayTotal > maxDayTotal) maxDayTotal = dayTotal;
+      }
+
+      var html = '';
+      var weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+      for (var di = 0; di < dates.length; di++) {
+        var date = dates[di];
+        var items = byDate[date];
+        var daySum = 0;
+        for (var x = 0; x < items.length; x++) daySum += items[x].amount;
+
+        var dateObj = new Date(date + 'T00:00:00');
+        var dayNum = dateObj.getDate();
+        var weekday = weekdays[dateObj.getDay()];
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var dateDisplay = dayNum + ' ' + monthNames[dateObj.getMonth()];
+
+        var intensity = maxDayTotal > 0 ? daySum / maxDayTotal : 0;
+        var totalClass = intensity > 0.7 ? 'high' : (intensity > 0.4 ? 'medium' : 'low');
+
+        html += '<div class="day-card">';
+        html += '<div class="day-header">';
+        html += '<div><span class="date">' + dateDisplay + '</span><span class="weekday">' + weekday + '</span></div>';
+        html += '<span class="total ' + totalClass + '">' + indianFormat(daySum) + '</span>';
+        html += '</div>';
+        html += '<div class="day-items">';
+        for (var it = 0; it < items.length; it++) {
+          html += '<div class="day-item">';
+          html += '<div><span class="cat">' + items[it].category + '</span><span class="note">' + (items[it].note || '') + '</span></div>';
+          html += '<span class="amt">' + indianFormat(items[it].amount) + '</span>';
+          html += '</div>';
+        }
+        html += '</div></div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    var selected = populateSelect();
+    render(selected);
+  }
+})();
+</script>
+</body>
+</html>
