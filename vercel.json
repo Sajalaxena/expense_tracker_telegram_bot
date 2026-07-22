@@ -1,19 +1,4 @@
 {
   "framework": null,
-  "installCommand": "pip install -r requirements.txt",
-  "builds": [
-    {
-      "src": "api/*.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*\\.(html|css|js|png|ico|svg))", "dest": "/public/$1" },
-    { "src": "/", "dest": "/public/index.html" }
-  ]
+  "installCommand": "pip install -r requirements.txt"
 }
