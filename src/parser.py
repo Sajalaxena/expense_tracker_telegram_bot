@@ -39,6 +39,8 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "investments": ["sip", "etf", "stocks", "mutual", "fund", "ppf", "nps", "crypto"],
     "health": ["medicine", "doctor", "hospital", "pharmacy", "lab", "test", "dental"],
     "education": ["course", "book", "udemy", "tutorial", "exam", "college", "fee"],
+    "fav P": ["T", "fav"],
+
 }
 
 # Editable list: keywords that indicate an income transaction
