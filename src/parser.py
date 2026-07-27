@@ -40,6 +40,8 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "health": ["medicine", "doctor", "hospital", "pharmacy", "lab", "test", "dental"],
     "education": ["course", "book", "udemy", "tutorial", "exam", "college", "fee"],
     "fav P": ["T", "fav"],
+    "Trip": ["Trip"],
+
 
 }
 
