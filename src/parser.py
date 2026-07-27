@@ -25,7 +25,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "travel": ["ola", "uber", "metro", "rapido", "auto", "cab", "bus", "train", "flight", "petrol", "diesel", "parking", "toll", "rickshaw"],
     "food": ["swiggy", "zomato", "chai", "coffee", "lunch", "dinner", "breakfast", "snack", "restaurant", "biryani"],
     "groceries": ["blinkit", "zepto", "bigbasket", "dmart", "vegetables", "fruits", "grocery", "milk"],
-    "shopping": ["amazon", "flipkart", "myntra", "ajio", "meesho", "nykaa", "tatacliq", "croma", "reliance"],
+    "shopping": ["amazon", "flipkart", "myntra", "ajio", "meesho", "nykaa", "tatacliq", "croma", "reliance","clothes"],
     "lifestyle": ["salon", "spa", "haircut", "parlour", "skincare", "perfume", "makeup", "facial", "massage", "grooming"],
     "clothes": ["shirt", "jeans", "shoes", "clothing", "jacket", "kurta", "saree", "dress"],
     "rent": ["rent", "house", "flat", "apartment", "pg"],
