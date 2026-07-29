@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracksy — Personal Favorites</title>
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0c0e14;
+  --bg-card: rgba(22, 27, 45, 0.8);
+  --bg-card-solid: #161b2d;
+  --border: rgba(236, 72, 153, 0.15);
+  --border-hover: rgba(236, 72, 153, 0.4);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-pink: #ec4899;
+  --accent-purple: #8b5cf6;
+  --accent-green: #10b981;
+  --gradient-primary: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --radius: 20px;
+  --radius-sm: 12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header a {
+  color: var(--accent-pink);
+  text-decoration: none;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.header a:hover {
+  opacity: 1;
+}
+
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 28px;
+  display: flex;
+  gap: 40px;
+  align-items: center;
+}
+
+.summary-item {
+  text-align: center;
+}
+
+.summary-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.summary-item .value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent-pink);
+}
+
+.summary-item .value.count {
+  color: var(--accent-purple);
+  font-size: 1.4rem;
+}
+
+.month-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.month-filter button {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.month-filter button.active,
+.month-filter button:hover {
+  background: var(--accent-pink);
+  color: white;
+  border-color: var(--accent-pink);
+}
+
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-card th {
+  text-align: left;
+  padding: 14px 20px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+}
+
+.table-card td {
+  padding: 14px 20px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.05);
+}
+
+.table-card tr:last-child td {
+  border-bottom: none;
+}
+
+.table-card tr:hover td {
+  background: rgba(236, 72, 153, 0.03);
+}
+
+.amount {
+  font-weight: 600;
+  color: var(--accent-pink);
+}
+
+.date-col {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.note-col {
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state p {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .summary-card { flex-direction: column; gap: 20px; }
+  .table-card td, .table-card th { padding: 10px 12px; font-size: 0.8rem; }
+  .header h1 { font-size: 1.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>💖 Personal Favorites</h1>
+    <a href="/dashboard.html">← Back to Dashboard</a>
+  </div>
+
+  <div class="summary-card" id="summary">
+    <div class="summary-item">
+      <div class="label">Total Spent</div>
+      <div class="value" id="total-spent">₹0</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">This Month</div>
+      <div class="value" id="month-spent">₹0</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">Items</div>
+      <div class="value count" id="item-count">0</div>
+    </div>
+  </div>
+
+  <div class="month-filter" id="month-filter"></div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Note</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody id="fav-table">
+      </tbody>
+    </table>
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <p>💫 No personal favorites yet</p>
+      <p>Send "fav 500 headphones" to your bot to add one</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  fetch('/api/data')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      initPage(data.fav_p || [], data.config || {});
+    })
+    .catch(function(err) {
+      console.error('Error loading fav_p data:', err);
+      document.getElementById('empty-state').style.display = 'block';
+    });
+
+  function indianFormat(amount, currency) {
+    currency = currency || '₹';
+    amount = Math.round(amount * 100) / 100;
+    var intPart = Math.floor(amount);
+    var decPart = amount !== intPart ? '.' + (amount).toFixed(2).split('.')[1] : '';
+    var intStr = intPart.toString();
+    var formatted;
+    if (intStr.length <= 3) {
+      formatted = intStr;
+    } else {
+      var lastThree = intStr.slice(-3);
+      var remaining = intStr.slice(0, -3);
+      var groups = [];
+      while (remaining.length > 2) {
+        groups.unshift(remaining.slice(-2));
+        remaining = remaining.slice(0, -2);
+      }
+      if (remaining) groups.unshift(remaining);
+      formatted = groups.join(',') + ',' + lastThree;
+    }
+    return currency + formatted + decPart;
+  }
+
+  function initPage(items, config) {
+    var currency = config.currency || '₹';
+
+    if (!items.length) {
+      document.getElementById('empty-state').style.display = 'block';
+      return;
+    }
+
+    // Calculate totals
+    var total = items.reduce(function(s, r) { return s + parseFloat(r.amount); }, 0);
+    var now = new Date();
+    var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var monthTotal = items
+      .filter(function(r) { return r.date && r.date.startsWith(currentMonth); })
+      .reduce(function(s, r) { return s + parseFloat(r.amount); }, 0);
+
+    document.getElementById('total-spent').textContent = indianFormat(total, currency);
+    document.getElementById('month-spent').textContent = indianFormat(monthTotal, currency);
+    document.getElementById('item-count').textContent = items.length;
+
+    // Get unique months
+    var months = [];
+    var monthSet = {};
+    items.forEach(function(r) {
+      if (r.date) {
+        var m = r.date.substring(0, 7);
+        if (!monthSet[m]) { monthSet[m] = true; months.push(m); }
+      }
+    });
+    months.sort().reverse();
+
+    // Month filter buttons
+    var filterDiv = document.getElementById('month-filter');
+    var allBtn = document.createElement('button');
+    allBtn.textContent = 'All';
+    allBtn.className = 'active';
+    allBtn.onclick = function() { renderTable(items, currency); setActive(allBtn); };
+    filterDiv.appendChild(allBtn);
+
+    months.forEach(function(m) {
+      var btn = document.createElement('button');
+      var parts = m.split('-');
+      var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      btn.textContent = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
+      btn.onclick = function() {
+        var filtered = items.filter(function(r) { return r.date && r.date.startsWith(m); });
+        renderTable(filtered, currency);
+        setActive(btn);
+      };
+      filterDiv.appendChild(btn);
+    });
+
+    function setActive(btn) {
+      filterDiv.querySelectorAll('button').forEach(function(b) { b.className = ''; });
+      btn.className = 'active';
+    }
+
+    renderTable(items, currency);
+  }
+
+  function renderTable(items, currency) {
+    var tbody = document.getElementById('fav-table');
+    var empty = document.getElementById('empty-state');
+
+    if (!items.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = items.map(function(r) {
+      return '<tr>' +
+        '<td class="date-col">' + (r.date || '') + '</td>' +
+        '<td class="note-col">' + (r.note || '') + '</td>' +
+        '<td class="amount">' + indianFormat(parseFloat(r.amount), currency) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+})();
+</script>
+</body>
+</html>
