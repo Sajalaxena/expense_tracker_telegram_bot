@@ -107,6 +107,7 @@ class SupabaseDB:
             self.client.table("txns")
             .select("amount")
             .eq("type", "expense")
+            .neq("category", "fav_p")
             .like("date", f"{date_prefix}%")
             .execute()
         )

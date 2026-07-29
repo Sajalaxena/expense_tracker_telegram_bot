@@ -25,10 +25,15 @@ class handler(BaseHTTPRequestHandler):
             rows = db.all_rows()
 
             # Strip sensitive fields (chat_id) from each transaction row
+            # Separate fav_p (personal favorites) from regular expenses
             expenses = []
+            fav_p = []
             for row in rows:
                 sanitized = {k: v for k, v in row.items() if k != "chat_id"}
-                expenses.append(sanitized)
+                if row.get("category") == "fav_p":
+                    fav_p.append(sanitized)
+                else:
+                    expenses.append(sanitized)
 
             # Get only active subscriptions (already excludes chat_id)
             subscriptions = db.get_all_active_subscriptions()
@@ -36,6 +41,7 @@ class handler(BaseHTTPRequestHandler):
             # Build response payload
             response_data = {
                 "expenses": expenses,
+                "fav_p": fav_p,
                 "config": {
                     "currency": config.currency,
                     "monthlyBudget": config.monthly_budget,

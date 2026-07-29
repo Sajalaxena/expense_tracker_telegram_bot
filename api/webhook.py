@@ -430,13 +430,17 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
 
     reply = f"✅ {amount_str} • {txn.category}\nMonth: {total_str} / {budget_str}"
 
-    # Step 5: Check overspend (expenses only)
-    if txn.type == "expense":
+    # Step 5: Check overspend (expenses only, skip fav_p)
+    if txn.type == "expense" and txn.category != "fav_p":
         try:
             warning = check_overspend(db, config, txn.category, current_month)
             if warning:
                 reply += f"\n{warning}"
         except Exception:
             pass  # Silently skip overspend check on failure
+
+    # For fav_p, show a different reply (not counted in budget)
+    if txn.category == "fav_p":
+        reply = f"✅ {amount_str} • Personal Favorites\n(Not counted in monthly budget)"
 
     return reply
