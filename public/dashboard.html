@@ -248,10 +248,28 @@ header h1 span { -webkit-text-fill-color: transparent; }
     <div class="section-placeholder">loading...</div>
   </div>
 
+  <!-- Total Subscription Cost Section -->
+  <div class="card" id="subscriptionCostSection">
+    <div class="card-title" style="color: var(--accent-purple);">Total Subscription Cost</div>
+    <div class="section-placeholder">loading...</div>
+  </div>
+
   <!-- Active Subscriptions Section -->
   <div class="card" id="activeSubscriptionsSection">
     <div class="card-title" style="color: var(--accent-purple);">Active Subscriptions</div>
     <div class="section-placeholder">loading...</div>
+  </div>
+
+  <!-- AI Money Coach (Gemini) Section -->
+  <div class="card" id="aiInsightsSection">
+    <div class="card-title" style="color: var(--accent-green);">🤖 AI Money Coach</div>
+    <div class="ai-insights-body">
+      <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:12px;">
+        Get personalized saving, budgeting and investment tips based on your actual spending, powered by Google Gemini.
+      </p>
+      <button type="button" id="aiInsightsBtn" style="background:linear-gradient(135deg, var(--accent-blue), var(--accent-purple));color:#fff;border:none;padding:10px 18px;border-radius:20px;font-size:0.85rem;cursor:pointer;font-weight:600;">✨ Get Suggestions</button>
+      <div id="aiInsightsResult" style="margin-top:16px;"></div>
+    </div>
   </div>
 
   <!-- Recent Activity Section -->
@@ -793,6 +811,40 @@ header h1 span { -webkit-text-fill-color: transparent; }
       wrapper.innerHTML = html; section.appendChild(wrapper);
     }
 
+    // ===== Total Subscription Cost =====
+    function getTotalMonthlySubscriptionCost() {
+      var totalMonthly = 0;
+      for (var i = 0; i < (subscriptionsData || []).length; i++) {
+        var sub = subscriptionsData[i];
+        totalMonthly += sub.cycle === 'yearly' ? (sub.amount / 12) : sub.amount;
+      }
+      return totalMonthly;
+    }
+
+    function renderSubscriptionCostCard() {
+      var section = document.getElementById('subscriptionCostSection');
+      var placeholder = section.querySelector('.section-placeholder');
+
+      if (!subscriptionsData || subscriptionsData.length === 0) {
+        if (placeholder) { placeholder.textContent = 'No active subscriptions'; placeholder.style.color = 'var(--text-muted)'; }
+        return;
+      }
+
+      var totalMonthly = getTotalMonthlySubscriptionCost();
+      var yearlyProjection = totalMonthly * 12;
+
+      var html = '<div style="text-align:center;padding:8px 0;">';
+      html += '<div style="font-size:2.2rem;font-weight:800;font-family:\'SF Mono\',Consolas,monospace;color:var(--accent-purple);">'+indianFormat(totalMonthly)+'<span style="font-size:0.9rem;color:var(--text-muted);font-weight:600;">/mo</span></div>';
+      html += '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">'+subscriptionsData.length+' active subscription'+(subscriptionsData.length===1?'':'s')+' · '+indianFormat(yearlyProjection)+'/year projected</div>';
+      html += '</div>';
+
+      if (placeholder) placeholder.remove();
+      var existing = section.querySelector('.sub-cost-content');
+      if (existing) existing.remove();
+      var wrapper = document.createElement('div'); wrapper.className = 'sub-cost-content';
+      wrapper.innerHTML = html; section.appendChild(wrapper);
+    }
+
     // ===== Active Subscriptions =====
     function renderActiveSubscriptions() {
       var section = document.getElementById('activeSubscriptionsSection');
@@ -959,6 +1011,46 @@ header h1 span { -webkit-text-fill-color: transparent; }
       wrapper.innerHTML = html; section.appendChild(wrapper);
     }
 
+    // ===== AI Money Coach (Gemini) =====
+    function renderAIInsights(monthStr) {
+      var btn = document.getElementById('aiInsightsBtn');
+      var resultEl = document.getElementById('aiInsightsResult');
+      if (!btn || btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+
+      btn.addEventListener('click', function() {
+        var currentMonth = document.getElementById('monthSelect').value || monthStr;
+        btn.disabled = true;
+        btn.textContent = 'Thinking…';
+        resultEl.innerHTML = '';
+
+        fetch('/api/insights?month=' + encodeURIComponent(currentMonth))
+          .then(function(response) { return response.json().then(function(json) { return { ok: response.ok, json: json }; }); })
+          .then(function(res) {
+            if (!res.ok || res.json.error) {
+              resultEl.innerHTML = '<div style="font-size:0.8rem;color:var(--accent-red);padding:12px;background:var(--bg-hover);border-radius:8px;">'+(res.json.error || 'Could not get suggestions right now.')+'</div>';
+              return;
+            }
+            var text = (res.json.insights || '').trim();
+            var paragraphs = text.split(/\n+/).filter(function(p) { return p.trim(); });
+            var html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+            for (var i = 0; i < paragraphs.length; i++) {
+              var p = paragraphs[i].replace(/^[-*]\s*/, '');
+              html += '<div style="font-size:0.85rem;line-height:1.6;color:var(--text-primary);padding:12px 14px;background:var(--bg-hover);border-left:3px solid var(--accent-green);border-radius:8px;">'+p+'</div>';
+            }
+            html += '</div>';
+            resultEl.innerHTML = html;
+          })
+          .catch(function() {
+            resultEl.innerHTML = '<div style="font-size:0.8rem;color:var(--accent-red);padding:12px;background:var(--bg-hover);border-radius:8px;">Could not reach the AI service. Please try again later.</div>';
+          })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = '✨ Get Suggestions';
+          });
+      });
+    }
+
     // ===== Main Render =====
     function renderDashboard(monthStr) {
       renderSummary(monthStr);
@@ -967,7 +1059,9 @@ header h1 span { -webkit-text-fill-color: transparent; }
       renderHeatmap(monthStr);
       renderMonthOverMonth(monthStr);
       renderBudgetsAlerts(monthStr);
+      renderSubscriptionCostCard();
       renderActiveSubscriptions();
+      renderAIInsights(monthStr);
       renderRecentActivity(monthStr);
       renderSpendingInsights(monthStr);
     }

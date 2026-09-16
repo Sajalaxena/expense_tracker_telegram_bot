@@ -71,6 +71,39 @@ header h1 {
 }
 .month-total .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
 
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px 20px; margin-bottom: 24px;
+}
+.filter-bar input[type="text"], .filter-bar select, .filter-bar input[type="date"] {
+  background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--border);
+  padding: 9px 14px; font-size: 0.85rem; border-radius: 10px; outline: none; transition: all 0.2s;
+  font-family: inherit;
+}
+.filter-bar input[type="text"] { flex: 1 1 220px; min-width: 180px; }
+.filter-bar select { flex: 0 1 160px; }
+.filter-bar input[type="date"] { flex: 0 1 150px; color-scheme: dark; }
+.filter-bar input:focus, .filter-bar select:focus { border-color: var(--blue); }
+.filter-bar .date-range { display: flex; align-items: center; gap: 6px; }
+.filter-bar .date-range span { color: var(--muted); font-size: 0.8rem; }
+.filter-bar .clear-btn {
+  background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.3);
+  padding: 9px 16px; font-size: 0.8rem; border-radius: 10px; cursor: pointer; transition: all 0.2s;
+}
+.filter-bar .clear-btn:hover { background: rgba(239,68,68,0.18); }
+
+.filter-summary {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px 20px; margin-top: 20px;
+}
+.filter-summary .desc { font-size: 0.8rem; color: var(--text2); }
+.filter-summary .desc strong { color: var(--text); }
+.filter-summary .grand-total {
+  font-family: 'SF Mono', Consolas, monospace; font-weight: 700; font-size: 1.1rem; color: var(--purple);
+}
+
 .day-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 14px;
   margin-bottom: 12px; overflow: hidden; transition: all 0.3s ease;
@@ -121,12 +154,28 @@ header h1 {
     </div>
   </header>
 
+  <div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Search category or note (e.g. rapido, netflix, swiggy)" />
+    <select id="categorySelect"></select>
+    <div class="date-range">
+      <input type="date" id="fromDate" title="From date">
+      <span>to</span>
+      <input type="date" id="toDate" title="To date">
+    </div>
+    <button type="button" class="clear-btn" id="clearFiltersBtn">Clear Filters</button>
+  </div>
+
   <div class="month-total">
-    <div class="label">Total Spent This Month</div>
+    <div class="label" id="totalLabel">Total Spent This Month</div>
     <div class="amount" id="monthAmount">₹0</div>
   </div>
 
   <div id="daysList"></div>
+
+  <div class="filter-summary" id="filterSummary" style="display:none;">
+    <div class="desc" id="filterDesc"></div>
+    <div class="grand-total" id="filterTotal"></div>
+  </div>
 </div>
 
 <script>
@@ -204,6 +253,14 @@ header h1 {
       return formatted;
     }
 
+    // Generic categories always offered in the dropdown, matching the bot's
+    // auto-categorization keywords (lib/parser.py CATEGORY_KEYWORDS) plus 'other'.
+    var GENERIC_CATEGORIES = [
+      'food', 'travel', 'groceries', 'shopping', 'lifestyle', 'clothes',
+      'rent', 'bills', 'entertainment', 'subscriptions', 'investments',
+      'health', 'education', 'other'
+    ];
+
     function getMonthStr(dateStr) { return dateStr.substring(0, 7); }
 
     function getAvailableMonths() {
@@ -236,17 +293,87 @@ header h1 {
         if (months[i] === current) opt.selected = true;
         select.appendChild(opt);
       }
-      select.addEventListener('change', function() { render(select.value); });
+      select.addEventListener('change', function() { render(); });
       return months.indexOf(current) >= 0 ? current : months[0] || current;
     }
 
-    function render(monthStr) {
-      var expenses = data.filter(function(t) { return getMonthStr(t.date) === monthStr && t.type === 'expense'; });
+    function populateCategorySelect() {
+      var select = document.getElementById('categorySelect');
+      var set = {};
+      for (var i = 0; i < data.length; i++) {
+        if (data[i].type === 'expense') set[data[i].category] = true;
+      }
+      var cats = GENERIC_CATEGORIES.slice();
+      var extra = Object.keys(set).filter(function(c) { return cats.indexOf(c) === -1; }).sort();
+      cats = cats.concat(extra);
 
-      // Month total
+      select.innerHTML = '';
+      var allOpt = document.createElement('option');
+      allOpt.value = 'all'; allOpt.textContent = 'All Categories';
+      select.appendChild(allOpt);
+      for (var j = 0; j < cats.length; j++) {
+        var opt = document.createElement('option');
+        opt.value = cats[j];
+        opt.textContent = cats[j].charAt(0).toUpperCase() + cats[j].slice(1);
+        select.appendChild(opt);
+      }
+    }
+
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function render() {
+      var monthStr = document.getElementById('monthSelect').value;
+      var category = document.getElementById('categorySelect').value;
+      var searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+      var fromDate = document.getElementById('fromDate').value;
+      var toDate = document.getElementById('toDate').value;
+      var useDateRange = !!(fromDate || toDate);
+
+      var expenses = data.filter(function(t) {
+        if (t.type !== 'expense') return false;
+        if (useDateRange) {
+          if (fromDate && t.date < fromDate) return false;
+          if (toDate && t.date > toDate) return false;
+        } else if (getMonthStr(t.date) !== monthStr) {
+          return false;
+        }
+        if (category !== 'all' && t.category !== category) return false;
+        if (searchTerm) {
+          var note = (t.note || '').toLowerCase();
+          var cat = (t.category || '').toLowerCase();
+          if (note.indexOf(searchTerm) === -1 && cat.indexOf(searchTerm) === -1) return false;
+        }
+        return true;
+      });
+
+      // Total for the current view (respects all active filters)
       var total = 0;
       for (var i = 0; i < expenses.length; i++) total += expenses[i].amount;
       document.getElementById('monthAmount').textContent = indianFormat(total);
+
+      var filtersActive = category !== 'all' || !!searchTerm || useDateRange;
+      document.getElementById('totalLabel').textContent = filtersActive
+        ? 'Total For Current Filters'
+        : 'Total Spent This Month';
+
+      // Bottom filter summary — category/keyword total, shown when filters are active
+      var summaryEl = document.getElementById('filterSummary');
+      if (filtersActive) {
+        var descParts = [];
+        if (category !== 'all') descParts.push('Category: <strong>' + capitalize(category) + '</strong>');
+        if (searchTerm) descParts.push('Search: <strong>"' + searchTerm + '"</strong>');
+        if (useDateRange) {
+          descParts.push('Range: <strong>' + (fromDate || '…') + ' → ' + (toDate || '…') + '</strong>');
+        } else {
+          descParts.push('Month: <strong>' + getMonthLabel(monthStr) + '</strong>');
+        }
+        descParts.push(expenses.length + ' transaction' + (expenses.length === 1 ? '' : 's'));
+        document.getElementById('filterDesc').innerHTML = descParts.join(' &nbsp;·&nbsp; ');
+        document.getElementById('filterTotal').textContent = 'Total: ' + indianFormat(total);
+        summaryEl.style.display = 'flex';
+      } else {
+        summaryEl.style.display = 'none';
+      }
 
       // Group by date
       var byDate = {};
@@ -261,7 +388,9 @@ header h1 {
       var container = document.getElementById('daysList');
 
       if (dates.length === 0) {
-        container.innerHTML = '<div class="empty">No expenses recorded this month.<br>Send a message to the bot to start tracking!</div>';
+        container.innerHTML = filtersActive
+          ? '<div class="empty">No expenses match your filters.<br>Try a different keyword, category, or date range.</div>'
+          : '<div class="empty">No expenses recorded this month.<br>Send a message to the bot to start tracking!</div>';
         return;
       }
 
@@ -309,8 +438,22 @@ header h1 {
       container.innerHTML = html;
     }
 
-    var selected = populateSelect();
-    render(selected);
+    populateSelect();
+    populateCategorySelect();
+
+    document.getElementById('categorySelect').addEventListener('change', render);
+    document.getElementById('searchInput').addEventListener('input', render);
+    document.getElementById('fromDate').addEventListener('change', render);
+    document.getElementById('toDate').addEventListener('change', render);
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+      document.getElementById('categorySelect').value = 'all';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      render();
+    });
+
+    render();
   }
 })();
 </script>

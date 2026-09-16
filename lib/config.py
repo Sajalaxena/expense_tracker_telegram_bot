@@ -16,6 +16,7 @@ class AppConfig:
     currency: str = "₹"
     monthly_budget: int = 50000
     budgets: dict = field(default_factory=dict)
+    gemini_api_key: str = ""
 
 
 def load_config_from_env() -> AppConfig:
@@ -62,4 +63,5 @@ def load_config_from_env() -> AppConfig:
         currency=os.environ.get("CURRENCY", "₹"),
         monthly_budget=monthly_budget,
         budgets=budgets,
+        gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
     )
