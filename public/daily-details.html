@@ -53,13 +53,46 @@ header h1 {
 
 .controls { display: flex; gap: 12px; align-items: center; }
 
-.controls select, .controls a {
+.controls a {
   background: var(--card); color: var(--text); border: 1px solid var(--border);
   padding: 10px 20px; font-size: 0.85rem; border-radius: 24px; cursor: pointer;
   text-decoration: none; transition: all 0.2s;
 }
-.controls select:hover, .controls a:hover { border-color: rgba(99,102,241,0.4); }
-.controls select:focus { outline: none; border-color: var(--blue); }
+.controls a:hover { border-color: rgba(99,102,241,0.4); }
+
+/* ===== Modern custom dropdown (replaces native <select> popups, which ignore dark theme) ===== */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-native { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+
+.dropdown-toggle {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 18px; font-size: 0.85rem; border-radius: 24px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 10px; white-space: nowrap;
+  font-family: inherit; transition: all 0.2s; width: 100%;
+}
+.dropdown-toggle:hover { border-color: rgba(99,102,241,0.4); }
+.dropdown-toggle.open { border-color: var(--blue); }
+.dropdown-toggle .dropdown-label { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.dropdown-toggle .chevron { width: 10px; height: 7px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; }
+.dropdown-toggle.open .chevron { transform: rotate(180deg); color: var(--blue); }
+
+.dropdown-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 100%;
+  background: #161b2d; border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.55); padding: 6px; z-index: 100;
+  max-height: 280px; overflow-y: auto;
+  opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.dropdown-menu.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-item {
+  padding: 9px 14px; font-size: 0.83rem; color: var(--text2); border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.dropdown-item:hover { background: rgba(99,102,241,0.14); color: var(--text); }
+.dropdown-item.selected { color: var(--blue); font-weight: 600; background: rgba(99,102,241,0.1); }
+.dropdown-menu::-webkit-scrollbar { width: 6px; }
+.dropdown-menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .month-total {
   text-align: center; margin-bottom: 32px; padding: 24px;
@@ -76,15 +109,18 @@ header h1 {
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
   padding: 16px 20px; margin-bottom: 24px;
 }
-.filter-bar input[type="text"], .filter-bar select, .filter-bar input[type="date"] {
+.filter-bar input[type="text"], .filter-bar input[type="date"] {
   background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--border);
   padding: 9px 14px; font-size: 0.85rem; border-radius: 10px; outline: none; transition: all 0.2s;
   font-family: inherit;
 }
 .filter-bar input[type="text"] { flex: 1 1 220px; min-width: 180px; }
-.filter-bar select { flex: 0 1 160px; }
+.filter-bar .dropdown { flex: 0 1 170px; }
+.filter-bar .dropdown-toggle {
+  background: rgba(255,255,255,0.03); border-radius: 10px; padding: 9px 14px;
+}
 .filter-bar input[type="date"] { flex: 0 1 150px; color-scheme: dark; }
-.filter-bar input:focus, .filter-bar select:focus { border-color: var(--blue); }
+.filter-bar input:focus { border-color: var(--blue); }
 .filter-bar .date-range { display: flex; align-items: center; gap: 6px; }
 .filter-bar .date-range span { color: var(--muted); font-size: 0.8rem; }
 .filter-bar .clear-btn {
@@ -281,6 +317,72 @@ header h1 {
       return months[parseInt(p[1],10)-1] + ' ' + p[0];
     }
 
+    // ===== Modern dropdown: wraps a native <select> with a dark-theme-aware
+    // custom popup, since browsers render native <option> lists with OS/light
+    // chrome that ignores our CSS. The <select> stays in the DOM (hidden) so
+    // all existing .value / 'change' event logic keeps working unchanged.
+    function enhanceSelect(select) {
+      var wrap = document.createElement('div');
+      wrap.className = 'dropdown';
+      select.parentNode.insertBefore(wrap, select);
+      wrap.appendChild(select);
+      select.classList.add('dropdown-native');
+
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'dropdown-toggle';
+      toggle.innerHTML = '<span class="dropdown-label"></span>' +
+        '<svg class="chevron" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      wrap.appendChild(toggle);
+
+      var menu = document.createElement('div');
+      menu.className = 'dropdown-menu';
+      wrap.appendChild(menu);
+
+      var labelEl = toggle.querySelector('.dropdown-label');
+
+      function buildMenu() {
+        menu.innerHTML = '';
+        var opts = select.options;
+        for (var i = 0; i < opts.length; i++) {
+          (function(opt) {
+            var item = document.createElement('div');
+            item.className = 'dropdown-item' + (opt.value === select.value ? ' selected' : '');
+            item.textContent = opt.textContent;
+            item.addEventListener('click', function() {
+              if (select.value !== opt.value) {
+                select.value = opt.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              sync();
+              closeMenu();
+            });
+            menu.appendChild(item);
+          })(opts[i]);
+        }
+      }
+
+      function sync() {
+        var current = select.options[select.selectedIndex];
+        labelEl.textContent = current ? current.textContent : '';
+        buildMenu();
+      }
+
+      function openMenu() { menu.classList.add('open'); toggle.classList.add('open'); document.addEventListener('mousedown', outsideClick); }
+      function closeMenu() { menu.classList.remove('open'); toggle.classList.remove('open'); document.removeEventListener('mousedown', outsideClick); }
+      function outsideClick(e) { if (!wrap.contains(e.target)) closeMenu(); }
+
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (menu.classList.contains('open')) closeMenu(); else openMenu();
+      });
+
+      sync();
+      return { sync: sync };
+    }
+
+    var monthDropdown, categoryDropdown;
+
     function populateSelect() {
       var select = document.getElementById('monthSelect');
       var months = getAvailableMonths();
@@ -294,6 +396,7 @@ header h1 {
         select.appendChild(opt);
       }
       select.addEventListener('change', function() { render(); });
+      if (!monthDropdown) monthDropdown = enhanceSelect(select); else monthDropdown.sync();
       return months.indexOf(current) >= 0 ? current : months[0] || current;
     }
 
@@ -317,6 +420,8 @@ header h1 {
         opt.textContent = cats[j].charAt(0).toUpperCase() + cats[j].slice(1);
         select.appendChild(opt);
       }
+      select.addEventListener('change', function() { render(); });
+      if (!categoryDropdown) categoryDropdown = enhanceSelect(select); else categoryDropdown.sync();
     }
 
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -441,7 +546,6 @@ header h1 {
     populateSelect();
     populateCategorySelect();
 
-    document.getElementById('categorySelect').addEventListener('change', render);
     document.getElementById('searchInput').addEventListener('input', render);
     document.getElementById('fromDate').addEventListener('change', render);
     document.getElementById('toDate').addEventListener('change', render);
@@ -450,6 +554,7 @@ header h1 {
       document.getElementById('searchInput').value = '';
       document.getElementById('fromDate').value = '';
       document.getElementById('toDate').value = '';
+      if (categoryDropdown) categoryDropdown.sync();
       render();
     });
 

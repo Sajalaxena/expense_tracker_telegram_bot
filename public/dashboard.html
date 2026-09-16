@@ -88,13 +88,38 @@ header h1 {
 
 header h1 span { -webkit-text-fill-color: transparent; }
 
-.month-selector select {
+/* ===== Modern custom dropdown (replaces native <select> popups, which ignore dark theme) ===== */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-native { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+
+.dropdown-toggle {
   background: var(--bg-card-solid); color: var(--text-primary); border: 1px solid var(--border);
-  padding: 12px 24px; font-size: 0.875rem; font-weight: 500; cursor: pointer;
-  appearance: auto; border-radius: 30px; box-shadow: var(--shadow-sm); transition: all 0.3s ease;
+  padding: 12px 24px; font-size: 0.875rem; font-weight: 500; cursor: pointer; font-family: inherit;
+  border-radius: 30px; box-shadow: var(--shadow-sm); transition: all 0.3s ease;
+  display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; width: 100%;
 }
-.month-selector select:hover { border-color: var(--border-hover); }
-.month-selector select:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(99,102,241,0.25), var(--shadow-sm); }
+.dropdown-toggle:hover { border-color: var(--border-hover); }
+.dropdown-toggle.open { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(99,102,241,0.25), var(--shadow-sm); }
+.dropdown-toggle .dropdown-label { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.dropdown-toggle .chevron { width: 10px; height: 7px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+.dropdown-toggle.open .chevron { transform: rotate(180deg); color: var(--accent-blue); }
+
+.dropdown-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 100%;
+  background: var(--bg-card-solid); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md); padding: 6px; z-index: 100; max-height: 320px; overflow-y: auto;
+  opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.dropdown-menu.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-item {
+  padding: 9px 14px; font-size: 0.85rem; color: var(--text-secondary); border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.dropdown-item.selected { color: var(--accent-blue); font-weight: 600; background: var(--bg-hover); }
+.dropdown-menu::-webkit-scrollbar { width: 6px; }
+.dropdown-menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .card {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -202,6 +227,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
     <h1><span>▌</span>tracksy</h1>
     <div class="month-selector" style="display:flex;align-items:center;gap:12px;">
       <a href="daily-details.html" style="font-size:0.8rem;color:var(--accent-purple);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">📅 Daily View</a>
+      <a href="insights.html" style="font-size:0.8rem;color:var(--accent-green);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🤖 AI Insights</a>
       <a href="fav-p.html" style="font-size:0.8rem;color:var(--accent-pink);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">💖 Fav P</a>
       <select id="monthSelect" class="mono"></select>
     </div>
@@ -265,9 +291,12 @@ header h1 span { -webkit-text-fill-color: transparent; }
     <div class="card-title" style="color: var(--accent-green);">🤖 AI Money Coach</div>
     <div class="ai-insights-body">
       <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:12px;">
-        Get personalized saving, budgeting and investment tips based on your actual spending, powered by Google Gemini.
+        Get personalized tips on expenses, subscriptions, loans and investments — powered by Google Gemini.
       </p>
-      <button type="button" id="aiInsightsBtn" style="background:linear-gradient(135deg, var(--accent-blue), var(--accent-purple));color:#fff;border:none;padding:10px 18px;border-radius:20px;font-size:0.85rem;cursor:pointer;font-weight:600;">✨ Get Suggestions</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" id="aiInsightsBtn" style="background:linear-gradient(135deg, var(--accent-blue), var(--accent-purple));color:#fff;border:none;padding:10px 18px;border-radius:20px;font-size:0.85rem;cursor:pointer;font-weight:600;">✨ Get Suggestions</button>
+        <a href="insights.html" style="font-size:0.85rem;color:var(--accent-green);text-decoration:none;padding:10px 18px;border:1px solid var(--border);border-radius:20px;">View Full Insights →</a>
+      </div>
       <div id="aiInsightsResult" style="margin-top:16px;"></div>
     </div>
   </div>
@@ -411,6 +440,71 @@ header h1 span { -webkit-text-fill-color: transparent; }
       return now.getFullYear() + '-' + (now.getMonth()+1).toString().padStart(2,'0');
     }
 
+    // ===== Modern dropdown: wraps a native <select> with a dark-theme-aware
+    // custom popup, since browsers render native <option> lists with OS/light
+    // chrome that ignores our CSS. The <select> stays in the DOM (hidden) so
+    // all existing .value / 'change' event logic keeps working unchanged.
+    function enhanceSelect(select) {
+      var extraClass = select.className;
+      var wrap = document.createElement('div');
+      wrap.className = 'dropdown';
+      select.parentNode.insertBefore(wrap, select);
+      wrap.appendChild(select);
+      select.classList.add('dropdown-native');
+
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'dropdown-toggle' + (extraClass ? ' ' + extraClass : '');
+      toggle.innerHTML = '<span class="dropdown-label"></span>' +
+        '<svg class="chevron" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      wrap.appendChild(toggle);
+
+      var menu = document.createElement('div');
+      menu.className = 'dropdown-menu';
+      wrap.appendChild(menu);
+
+      var labelEl = toggle.querySelector('.dropdown-label');
+
+      function buildMenu() {
+        menu.innerHTML = '';
+        var opts = select.options;
+        for (var i = 0; i < opts.length; i++) {
+          (function(opt) {
+            var item = document.createElement('div');
+            item.className = 'dropdown-item' + (opt.value === select.value ? ' selected' : '');
+            item.textContent = opt.textContent;
+            item.addEventListener('click', function() {
+              if (select.value !== opt.value) {
+                select.value = opt.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              sync();
+              closeMenu();
+            });
+            menu.appendChild(item);
+          })(opts[i]);
+        }
+      }
+
+      function sync() {
+        var current = select.options[select.selectedIndex];
+        labelEl.textContent = current ? current.textContent : '';
+        buildMenu();
+      }
+
+      function openMenu() { menu.classList.add('open'); toggle.classList.add('open'); document.addEventListener('mousedown', outsideClick); }
+      function closeMenu() { menu.classList.remove('open'); toggle.classList.remove('open'); document.removeEventListener('mousedown', outsideClick); }
+      function outsideClick(e) { if (!wrap.contains(e.target)) closeMenu(); }
+
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (menu.classList.contains('open')) closeMenu(); else openMenu();
+      });
+
+      sync();
+      return { sync: sync };
+    }
+
     // ===== Populate Month Selector =====
     function populateMonthSelector() {
       var select = document.getElementById('monthSelect');
@@ -426,6 +520,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       }
       if (!hasCurrentMonth && months.length > 0) select.value = months[0];
       select.addEventListener('change', function() { renderDashboard(select.value); });
+      enhanceSelect(select);
       return hasCurrentMonth ? currentMonth : (months[0] || currentMonth);
     }
 
@@ -1031,14 +1126,20 @@ header h1 span { -webkit-text-fill-color: transparent; }
               resultEl.innerHTML = '<div style="font-size:0.8rem;color:var(--accent-red);padding:12px;background:var(--bg-hover);border-radius:8px;">'+(res.json.error || 'Could not get suggestions right now.')+'</div>';
               return;
             }
-            var text = (res.json.insights || '').trim();
-            var paragraphs = text.split(/\n+/).filter(function(p) { return p.trim(); });
-            var html = '<div style="display:flex;flex-direction:column;gap:10px;">';
-            for (var i = 0; i < paragraphs.length; i++) {
-              var p = paragraphs[i].replace(/^[-*]\s*/, '');
-              html += '<div style="font-size:0.85rem;line-height:1.6;color:var(--text-primary);padding:12px 14px;background:var(--bg-hover);border-left:3px solid var(--accent-green);border-radius:8px;">'+p+'</div>';
+            var json = res.json;
+            var html = '';
+            if (json.summary) {
+              html += '<div style="font-size:0.85rem;line-height:1.6;color:var(--text-primary);padding:12px 14px;background:var(--bg-hover);border-left:3px solid var(--accent-green);border-radius:8px;margin-bottom:10px;">'+json.summary+'</div>';
             }
-            html += '</div>';
+            var quickTips = [].concat(json.expense_tips || []).concat(json.subscription_tips || []).slice(0, 3);
+            if (quickTips.length) {
+              html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+              for (var i = 0; i < quickTips.length; i++) {
+                html += '<div style="font-size:0.8rem;line-height:1.5;color:var(--text-secondary);padding:10px 12px;background:var(--bg-hover);border-radius:8px;">• '+quickTips[i]+'</div>';
+              }
+              html += '</div>';
+            }
+            if (!html) html = '<div style="font-size:0.8rem;color:var(--text-muted);">No suggestions available right now.</div>';
             resultEl.innerHTML = html;
           })
           .catch(function() {

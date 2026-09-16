@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracksy — AI Money Coach</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0e14;
+  --card: rgba(22, 27, 45, 0.8);
+  --card-solid: #161b2d;
+  --border: rgba(16, 185, 129, 0.15);
+  --border-hover: rgba(16, 185, 129, 0.4);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --muted: #64748b;
+  --blue: #6366f1;
+  --purple: #8b5cf6;
+  --pink: #ec4899;
+  --green: #10b981;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --cyan: #06b6d4;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(16,185,129,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(99,102,241,0.06) 0%, transparent 50%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  padding: 40px;
+  min-height: 100vh;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.container { max-width: 1000px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 1.5rem; font-weight: 700;
+  background: linear-gradient(135deg, #10b981, #06b6d4, #6366f1);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
+
+.controls { display: flex; gap: 12px; align-items: center; }
+.controls a, .controls button {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 20px; font-size: 0.85rem; border-radius: 24px; cursor: pointer;
+  text-decoration: none; transition: all 0.2s; font-family: inherit;
+}
+.controls a:hover, .controls button:hover { border-color: var(--border-hover); }
+.controls .refresh-btn { display: flex; align-items: center; gap: 8px; color: var(--green); border-color: rgba(16,185,129,0.3); }
+.controls .refresh-btn .spin-icon { display: inline-block; transition: transform 0.4s; }
+.controls .refresh-btn.loading .spin-icon { animation: spin 0.8s linear infinite; }
+
+/* ===== Modern custom dropdown ===== */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-native { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.dropdown-toggle {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 18px; font-size: 0.85rem; border-radius: 24px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 10px; white-space: nowrap;
+  font-family: inherit; transition: all 0.2s; width: 100%;
+}
+.dropdown-toggle:hover { border-color: var(--border-hover); }
+.dropdown-toggle.open { border-color: var(--green); }
+.dropdown-toggle .dropdown-label { flex: 1; text-align: left; }
+.dropdown-toggle .chevron { width: 10px; height: 7px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; }
+.dropdown-toggle.open .chevron { transform: rotate(180deg); color: var(--green); }
+.dropdown-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 100%;
+  background: var(--card-solid); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.55); padding: 6px; z-index: 100;
+  max-height: 280px; overflow-y: auto;
+  opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.dropdown-menu.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-item { padding: 9px 14px; font-size: 0.83rem; color: var(--text2); border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.dropdown-item:hover { background: rgba(16,185,129,0.12); color: var(--text); }
+.dropdown-item.selected { color: var(--green); font-weight: 600; background: rgba(16,185,129,0.08); }
+.dropdown-menu::-webkit-scrollbar { width: 6px; }
+.dropdown-menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ===== Quick stats ===== */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
+}
+.stat-card .label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.stat-card .value { font-family: 'SF Mono', Consolas, monospace; font-size: 1.3rem; font-weight: 700; }
+.stat-card .sub { font-size: 0.72rem; color: var(--text2); margin-top: 4px; }
+
+/* ===== Summary banner ===== */
+.summary-banner {
+  background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08));
+  border: 1px solid var(--border-hover); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px;
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.summary-banner .icon { font-size: 1.4rem; line-height: 1; }
+.summary-banner .text { font-size: 0.95rem; line-height: 1.5; color: var(--text); }
+
+/* ===== Tip sections ===== */
+.tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.tip-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+  animation: fadeIn 0.4s ease-out;
+}
+.tip-card .tip-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.tip-card ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.tip-card li {
+  font-size: 0.85rem; line-height: 1.5; color: var(--text2); padding: 10px 12px;
+  background: rgba(255,255,255,0.03); border-left: 3px solid var(--card-accent, var(--green)); border-radius: 8px;
+}
+
+/* ===== Loading / empty / error states ===== */
+.state-box {
+  text-align: center; padding: 70px 20px; color: var(--text2);
+}
+.state-box .spinner {
+  width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 18px;
+  border: 3px solid rgba(16,185,129,0.2); border-top-color: var(--green);
+  animation: spin 0.8s linear infinite;
+}
+.state-box.error { color: var(--red); }
+.state-box .retry-btn {
+  margin-top: 16px; background: var(--card); color: var(--text); border: 1px solid var(--border);
+  padding: 10px 22px; font-size: 0.85rem; border-radius: 24px; cursor: pointer; font-family: inherit;
+}
+.state-box .retry-btn:hover { border-color: var(--border-hover); }
+.skeleton-line {
+  height: 14px; border-radius: 6px; background: rgba(255,255,255,0.06);
+  animation: pulse 1.4s ease-in-out infinite; margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  body { padding: 20px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .tips-grid { grid-template-columns: 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>🤖 AI Money Coach</h1>
+      <div class="subtitle">Personalized tips on expenses, subscriptions, loans &amp; investments — powered by Gemini</div>
+    </div>
+    <div class="controls">
+      <div id="monthSelect-wrap"><select id="monthSelect"></select></div>
+      <button type="button" class="refresh-btn" id="refreshBtn"><span class="spin-icon">↻</span> Refresh</button>
+      <a href="dashboard.html">← Dashboard</a>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label">Spent This Month</div>
+      <div class="value" id="statSpent">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Vs Last Month</div>
+      <div class="value" id="statVsLast">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Subscription Cost</div>
+      <div class="value" id="statSubs">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Budget Status</div>
+      <div class="value" id="statBudget">—</div>
+    </div>
+  </div>
+
+  <div id="insightsArea">
+    <div class="state-box" id="loadingState">
+      <div class="spinner"></div>
+      Analyzing your spending with Gemini…
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var data = { expenses: [], subscriptions: [], config: {} };
+  var currentMonth = null;
+
+  fetch('/api/data')
+    .then(function(response) {
+      if (!response.ok) throw new Error('Failed to fetch data');
+      return response.json();
+    })
+    .then(function(json) {
+      init(json.expenses || [], json.subscriptions || [], json.config || {});
+    })
+    .catch(function(err) {
+      console.error('Error loading dashboard data:', err);
+      init([], [], {});
+    });
+
+  function init(expenses, subscriptions, config) {
+    data.expenses = expenses;
+    data.subscriptions = subscriptions;
+    data.config = {
+      currency: config.currency || '₹',
+      monthlyBudget: config.monthlyBudget || 50000,
+      budgets: config.budgets || {}
+    };
+
+    function indianFormat(amount) {
+      var currency = data.config.currency;
+      var isNegative = amount < 0;
+      amount = Math.abs(amount);
+      var parts = amount.toFixed(2).split('.');
+      var intPart = parts[0];
+      var decPart = parts[1];
+      if (decPart === '00') decPart = '';
+      else if (decPart.charAt(1) === '0') decPart = decPart.charAt(0);
+      var result = '';
+      if (intPart.length <= 3) { result = intPart; }
+      else {
+        var last3 = intPart.slice(-3);
+        var remaining = intPart.slice(0, -3);
+        var groups = [];
+        while (remaining.length > 2) { groups.unshift(remaining.slice(-2)); remaining = remaining.slice(0, -2); }
+        if (remaining.length > 0) groups.unshift(remaining);
+        result = groups.join(',') + ',' + last3;
+      }
+      var formatted = (isNegative ? '-' : '') + currency + result;
+      if (decPart) formatted += '.' + decPart;
+      return formatted;
+    }
+
+    function getMonthStr(dateStr) { return dateStr.substring(0, 7); }
+    function getCurrentMonth() {
+      var now = new Date();
+      return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+    function getMonthLabel(m) {
+      var p = m.split('-');
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      return months[parseInt(p[1],10)-1] + ' ' + p[0];
+    }
+    function getPrevMonth(m) {
+      var p = m.split('-'); var y = parseInt(p[0],10), mo = parseInt(p[1],10);
+      if (mo === 1) { y -= 1; mo = 12; } else { mo -= 1; }
+      return y + '-' + String(mo).padStart(2, '0');
+    }
+    function getAvailableMonths() {
+      var set = {};
+      for (var i = 0; i < data.expenses.length; i++) { set[getMonthStr(data.expenses[i].date)] = true; }
+      var months = Object.keys(set); months.sort(); months.reverse();
+      return months;
+    }
+    function monthTotal(m) {
+      var total = 0;
+      for (var i = 0; i < data.expenses.length; i++) {
+        var t = data.expenses[i];
+        if (t.type === 'expense' && getMonthStr(t.date) === m) total += t.amount;
+      }
+      return total;
+    }
+    function subscriptionMonthlyCost() {
+      var total = 0;
+      for (var i = 0; i < data.subscriptions.length; i++) {
+        var s = data.subscriptions[i];
+        total += s.cycle === 'yearly' ? (s.amount / 12) : s.amount;
+      }
+      return total;
+    }
+
+    // ===== Modern dropdown (native <select> stays functional but hidden) =====
+    function enhanceSelect(select) {
+      var wrap = document.createElement('div');
+      wrap.className = 'dropdown';
+      select.parentNode.insertBefore(wrap, select);
+      wrap.appendChild(select);
+      select.classList.add('dropdown-native');
+
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'dropdown-toggle';
+      toggle.innerHTML = '<span class="dropdown-label"></span>' +
+        '<svg class="chevron" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      wrap.appendChild(toggle);
+
+      var menu = document.createElement('div');
+      menu.className = 'dropdown-menu';
+      wrap.appendChild(menu);
+
+      var labelEl = toggle.querySelector('.dropdown-label');
+
+      function buildMenu() {
+        menu.innerHTML = '';
+        var opts = select.options;
+        for (var i = 0; i < opts.length; i++) {
+          (function(opt) {
+            var item = document.createElement('div');
+            item.className = 'dropdown-item' + (opt.value === select.value ? ' selected' : '');
+            item.textContent = opt.textContent;
+            item.addEventListener('click', function() {
+              if (select.value !== opt.value) {
+                select.value = opt.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              sync();
+              closeMenu();
+            });
+            menu.appendChild(item);
+          })(opts[i]);
+        }
+      }
+
+      function sync() {
+        var current = select.options[select.selectedIndex];
+        labelEl.textContent = current ? current.textContent : '';
+        buildMenu();
+      }
+
+      function openMenu() { menu.classList.add('open'); toggle.classList.add('open'); document.addEventListener('mousedown', outsideClick); }
+      function closeMenu() { menu.classList.remove('open'); toggle.classList.remove('open'); document.removeEventListener('mousedown', outsideClick); }
+      function outsideClick(e) { if (!wrap.contains(e.target)) closeMenu(); }
+
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (menu.classList.contains('open')) closeMenu(); else openMenu();
+      });
+
+      sync();
+      return { sync: sync };
+    }
+
+    function populateMonthSelect() {
+      var select = document.getElementById('monthSelect');
+      var months = getAvailableMonths();
+      var current = getCurrentMonth();
+      if (months.indexOf(current) === -1) months.unshift(current);
+      select.innerHTML = '';
+      for (var i = 0; i < months.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = months[i]; opt.textContent = getMonthLabel(months[i]);
+        if (months[i] === current) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', function() {
+        currentMonth = select.value;
+        renderStats(currentMonth);
+        fetchInsights(currentMonth);
+      });
+      enhanceSelect(select);
+      return months.indexOf(current) >= 0 ? current : months[0] || current;
+    }
+
+    function renderStats(monthStr) {
+      var spent = monthTotal(monthStr);
+      var prevSpent = monthTotal(getPrevMonth(monthStr));
+      var subsCost = subscriptionMonthlyCost();
+      var budget = data.config.monthlyBudget || 0;
+
+      document.getElementById('statSpent').textContent = indianFormat(spent);
+
+      var vsLastEl = document.getElementById('statVsLast');
+      if (prevSpent > 0) {
+        var diff = spent - prevSpent;
+        var pct = Math.round(Math.abs(diff) / prevSpent * 100);
+        vsLastEl.textContent = (diff >= 0 ? '+' : '-') + pct + '%';
+        vsLastEl.style.color = diff > 0 ? 'var(--red)' : (diff < 0 ? 'var(--green)' : 'var(--text)');
+      } else {
+        vsLastEl.textContent = '—';
+        vsLastEl.style.color = 'var(--text)';
+      }
+
+      document.getElementById('statSubs').textContent = data.subscriptions.length
+        ? indianFormat(subsCost) + '/mo'
+        : '—';
+
+      var budgetEl = document.getElementById('statBudget');
+      if (budget > 0) {
+        var pctUsed = Math.round((spent / budget) * 100);
+        budgetEl.textContent = pctUsed + '%';
+        budgetEl.style.color = pctUsed > 90 ? 'var(--red)' : (pctUsed > 70 ? 'var(--yellow)' : 'var(--green)');
+      } else {
+        budgetEl.textContent = '—';
+      }
+    }
+
+    var SECTIONS = [
+      { key: 'expense_tips', title: '💸 Expense Tips', color: 'var(--pink)' },
+      { key: 'subscription_tips', title: '📺 Subscription Tips', color: 'var(--cyan)' },
+      { key: 'loan_tips', title: '🏦 Loan &amp; Debt Tips', color: 'var(--yellow)' },
+      { key: 'investment_tips', title: '📈 Investment Tips', color: 'var(--green)' },
+      { key: 'general_tips', title: '✨ General Money Habits', color: 'var(--purple)' }
+    ];
+
+    function renderLoading() {
+      var area = document.getElementById('insightsArea');
+      area.innerHTML = '<div class="state-box" id="loadingState"><div class="spinner"></div>Analyzing your spending with Gemini…</div>';
+    }
+
+    function renderError(message) {
+      var area = document.getElementById('insightsArea');
+      area.innerHTML = '<div class="state-box error">⚠️ ' + message + '<br><button type="button" class="retry-btn" id="retryBtn">Try Again</button></div>';
+      document.getElementById('retryBtn').addEventListener('click', function() { fetchInsights(currentMonth); });
+    }
+
+    function renderInsights(json) {
+      var area = document.getElementById('insightsArea');
+      var html = '';
+
+      if (json.summary) {
+        html += '<div class="summary-banner"><span class="icon">🧭</span><span class="text">' + json.summary + '</span></div>';
+      }
+
+      html += '<div class="tips-grid">';
+      for (var i = 0; i < SECTIONS.length; i++) {
+        var section = SECTIONS[i];
+        var items = json[section.key] || [];
+        if (items.length === 0) continue;
+        html += '<div class="tip-card" style="--card-accent:' + section.color + '">';
+        html += '<div class="tip-title">' + section.title + '</div><ul>';
+        for (var j = 0; j < items.length; j++) {
+          html += '<li>' + items[j] + '</li>';
+        }
+        html += '</ul></div>';
+      }
+      html += '</div>';
+
+      area.innerHTML = html;
+    }
+
+    function fetchInsights(monthStr) {
+      renderLoading();
+      var btn = document.getElementById('refreshBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      fetch('/api/insights?month=' + encodeURIComponent(monthStr))
+        .then(function(response) { return response.json().then(function(json) { return { ok: response.ok, json: json }; }); })
+        .then(function(res) {
+          if (!res.ok || res.json.error) {
+            renderError(res.json.error || 'Could not get suggestions right now.');
+            return;
+          }
+          renderInsights(res.json);
+        })
+        .catch(function() {
+          renderError('Could not reach the AI service. Please check your connection and try again.');
+        })
+        .finally(function() {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        });
+    }
+
+    currentMonth = populateMonthSelect();
+    renderStats(currentMonth);
+    fetchInsights(currentMonth);
+
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+      fetchInsights(currentMonth);
+    });
+  }
+})();
+</script>
+</body>
+</html>
