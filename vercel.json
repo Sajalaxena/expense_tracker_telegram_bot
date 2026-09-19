@@ -1,4 +1,12 @@
 {
   "framework": null,
-  "installCommand": "pip install -r requirements.txt"
+  "installCommand": "pip install -r requirements.txt",
+  "functions": {
+    "api/insights.py": {
+      "maxDuration": 30
+    },
+    "api/chat.py": {
+      "maxDuration": 30
+    }
+  }
 }

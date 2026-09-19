@@ -16,11 +16,7 @@ from urllib.parse import parse_qs, urlparse
 
 from lib.config import load_config_from_env
 from lib.db import SupabaseDB
-
-GEMINI_MODEL = "gemini-flash-lite-latest"
-GEMINI_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-)
+from lib.gemini import call_gemini
 
 TIP_SECTIONS = [
     "expense_tips",
@@ -94,34 +90,11 @@ def _build_prompt(month: str, config, category_totals: dict, month_total: float,
 
 
 def _call_gemini(api_key: str, prompt: str) -> dict:
-    payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.6,
-            "maxOutputTokens": 800,
-            "responseMimeType": "application/json",
-        },
-    }).encode("utf-8")
-
-    request = urllib.request.Request(
-        f"{GEMINI_URL}?key={api_key}",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
+    text = call_gemini(
+        api_key,
+        [{"parts": [{"text": prompt}]}],
+        json_mode=True,
     )
-
-    with urllib.request.urlopen(request, timeout=30) as response:
-        body = json.loads(response.read().decode("utf-8"))
-
-    candidates = body.get("candidates") or []
-    if not candidates:
-        raise ValueError("Gemini returned no candidates")
-
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text = "".join(part.get("text", "") for part in parts).strip()
-
-    if not text:
-        raise ValueError("Gemini returned an empty response")
 
     parsed = json.loads(text)
 
