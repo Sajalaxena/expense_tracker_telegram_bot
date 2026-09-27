@@ -221,6 +221,7 @@ header h1 {
   // ===== Fetch data from API and initialize page =====
   fetch('/api/data')
     .then(function(response) {
+      if (response.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
       if (!response.ok) throw new Error('Failed to fetch data');
       return response.json();
     })

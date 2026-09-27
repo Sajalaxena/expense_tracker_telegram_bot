@@ -225,11 +225,12 @@ header h1 span { -webkit-text-fill-color: transparent; }
 <div class="container">
   <header>
     <h1><span>▌</span>tracksy</h1>
-    <div class="month-selector" style="display:flex;align-items:center;gap:12px;">
+    <div class="month-selector" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <a href="daily-details.html" style="font-size:0.8rem;color:var(--accent-purple);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">📅 Daily View</a>
       <a href="insights.html" style="font-size:0.8rem;color:var(--accent-green);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🤖 AI Insights</a>
       <a href="fav-p.html" style="font-size:0.8rem;color:var(--accent-pink);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">💖 Fav P</a>
       <select id="monthSelect" class="mono"></select>
+      <button type="button" id="logoutBtn" style="font-size:0.8rem;color:var(--text-secondary);background:transparent;cursor:pointer;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;font-family:inherit;">🚪 Logout</button>
     </div>
   </header>
 
@@ -321,6 +322,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
   // ===== Fetch data from API and initialize dashboard =====
   fetch('/api/data')
     .then(function(response) {
+      if (response.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
       if (!response.ok) throw new Error('Failed to fetch data');
       return response.json();
     })
@@ -1166,6 +1168,13 @@ header h1 span { -webkit-text-fill-color: transparent; }
       renderRecentActivity(monthStr);
       renderSpendingInsights(monthStr);
     }
+
+    // ===== Logout =====
+    document.getElementById('logoutBtn').addEventListener('click', function() {
+      fetch('/api/logout', { method: 'POST' }).finally(function() {
+        window.location.href = '/login.html';
+      });
+    });
 
     // ===== Initialize =====
     var selectedMonth = populateMonthSelector();

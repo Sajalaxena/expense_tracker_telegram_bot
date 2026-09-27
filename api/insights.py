@@ -14,9 +14,11 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
+from lib.auth import is_authenticated
 from lib.config import load_config_from_env
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
+from lib.ratelimit import check_rate_limit, get_client_id
 
 TIP_SECTIONS = [
     "expense_tips",
@@ -116,6 +118,10 @@ class handler(BaseHTTPRequestHandler):
         try:
             config = load_config_from_env()
 
+            if not is_authenticated(self.headers, config.session_secret):
+                self._send_response(401, json.dumps({"error": "Unauthorized"}))
+                return
+
             if not config.gemini_api_key:
                 self._send_response(200, json.dumps({
                     "error": "AI Money Coach is not configured. Set GEMINI_API_KEY to enable it."
@@ -126,6 +132,16 @@ class handler(BaseHTTPRequestHandler):
             month = (query.get("month") or [None])[0]
 
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+
+            decision = check_rate_limit(db.client, "insights", get_client_id(self.headers))
+            if not decision.allowed:
+                self._send_response(
+                    429,
+                    json.dumps({"error": decision.message, "retryAfter": decision.retry_after}),
+                    {"Retry-After": str(decision.retry_after)},
+                )
+                return
+
             rows = db.all_rows()
 
             expenses = [
@@ -194,11 +210,13 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _send_response(self, status_code: int, body: str):
+    def _send_response(self, status_code: int, body: str, extra_headers: dict | None = None):
         """Send an HTTP response with JSON body and CORS headers."""
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body.encode("utf-8"))

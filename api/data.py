@@ -8,6 +8,7 @@ import json
 import traceback
 from http.server import BaseHTTPRequestHandler
 
+from lib.auth import is_authenticated
 from lib.config import load_config_from_env
 from lib.db import SupabaseDB
 
@@ -19,6 +20,11 @@ class handler(BaseHTTPRequestHandler):
         """Handle GET requests — return dashboard data as JSON."""
         try:
             config = load_config_from_env()
+
+            if not is_authenticated(self.headers, config.session_secret):
+                self._send_response(401, json.dumps({"error": "Unauthorized"}))
+                return
+
             db = SupabaseDB(config.supabase_url, config.supabase_key)
 
             # Query all transactions ordered by created_at DESC
@@ -72,6 +78,6 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Cache-Control", "public, max-age=30")
+        self.send_header("Cache-Control", "private, no-store")
         self.end_headers()
         self.wfile.write(body.encode("utf-8"))

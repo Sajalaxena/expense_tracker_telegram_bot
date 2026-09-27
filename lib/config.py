@@ -17,6 +17,9 @@ class AppConfig:
     monthly_budget: int = 50000
     budgets: dict = field(default_factory=dict)
     gemini_api_key: str = ""
+    auth_username: str = ""
+    auth_password: str = ""
+    session_secret: str = ""
 
 
 def load_config_from_env() -> AppConfig:
@@ -64,4 +67,7 @@ def load_config_from_env() -> AppConfig:
         monthly_budget=monthly_budget,
         budgets=budgets,
         gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
+        auth_username=os.environ.get("AUTH_USERNAME", ""),
+        auth_password=os.environ.get("AUTH_PASSWORD", ""),
+        session_secret=os.environ.get("SESSION_SECRET", ""),
     )

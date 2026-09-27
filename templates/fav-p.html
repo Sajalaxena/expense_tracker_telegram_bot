@@ -248,7 +248,10 @@ body {
   'use strict';
 
   fetch('/api/data')
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+      return r.json();
+    })
     .then(function(data) {
       initPage(data.fav_p || [], data.config || {});
     })

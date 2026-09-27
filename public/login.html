@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracksy — Sign In</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0e14;
+  --card: rgba(22, 27, 45, 0.85);
+  --border: rgba(99, 102, 241, 0.15);
+  --border-hover: rgba(99, 102, 241, 0.4);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --muted: #64748b;
+  --blue: #6366f1;
+  --purple: #8b5cf6;
+  --red: #ef4444;
+  --green: #10b981;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.08) 0%, transparent 50%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+.card {
+  width: 100%; max-width: 380px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+  padding: 36px 32px; animation: fadeIn 0.4s ease-out;
+}
+.card.shake { animation: shake 0.4s ease; }
+
+.brand { text-align: center; margin-bottom: 28px; }
+.brand .logo { font-size: 2rem; margin-bottom: 8px; }
+.brand h1 {
+  font-size: 1.3rem; font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.brand p { font-size: 0.8rem; color: var(--text2); margin-top: 6px; }
+
+form { display: flex; flex-direction: column; gap: 16px; }
+.field label { display: block; font-size: 0.75rem; color: var(--text2); margin-bottom: 6px; }
+.field input {
+  width: 100%; background: rgba(255,255,255,0.04); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+  font-size: 0.9rem; font-family: inherit; outline: none; transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--blue); }
+.field input::placeholder { color: var(--muted); }
+
+.error-box {
+  display: none; align-items: flex-start; gap: 8px; font-size: 0.82rem; color: #fca5a5;
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 10px; padding: 10px 12px;
+}
+.error-box.show { display: flex; }
+
+.submit-btn {
+  background: linear-gradient(135deg, var(--blue), var(--purple)); color: #fff; border: none;
+  border-radius: 12px; padding: 13px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: opacity 0.2s;
+}
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.spinner {
+  width: 15px; height: 15px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff; animation: spin 0.7s linear infinite; display: none;
+}
+.submit-btn.loading .spinner { display: inline-block; }
+.submit-btn.loading .btn-label { opacity: 0.85; }
+
+.footnote { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 22px; }
+
+@media (max-width: 420px) {
+  .card { padding: 28px 22px; border-radius: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="brand">
+    <div class="logo">🔒</div>
+    <h1>Tracksy</h1>
+    <p>Sign in to view your finances</p>
+  </div>
+
+  <form id="loginForm" autocomplete="on">
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" placeholder="Your username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Your password" required>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">
+      <span class="spinner"></span>
+      <span class="btn-label">Sign In</span>
+    </button>
+  </form>
+
+  <div class="footnote">Private access only — Tracksy expense tracker</div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var form = document.getElementById('loginForm');
+  var card = document.getElementById('card');
+  var errorBox = document.getElementById('errorBox');
+  var submitBtn = document.getElementById('submitBtn');
+  var usernameEl = document.getElementById('username');
+  var passwordEl = document.getElementById('password');
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.classList.add('show');
+    card.classList.remove('shake');
+    void card.offsetWidth; // restart animation
+    card.classList.add('shake');
+  }
+
+  function hideError() {
+    errorBox.classList.remove('show');
+    errorBox.textContent = '';
+  }
+
+  function setLoading(state) {
+    submitBtn.disabled = state;
+    submitBtn.classList.toggle('loading', state);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    hideError();
+    setLoading(true);
+
+    fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: usernameEl.value.trim(), password: passwordEl.value })
+    })
+      .then(function(response) {
+        return response.json().then(function(json) { return { status: response.status, json: json }; });
+      })
+      .then(function(res) {
+        if (res.status === 200 && res.json.ok) {
+          var params = new URLSearchParams(window.location.search);
+          window.location.href = params.get('next') || '/dashboard.html';
+          return;
+        }
+        showError(res.json && res.json.error ? res.json.error : 'Sign in failed. Please try again.');
+        passwordEl.value = '';
+        passwordEl.focus();
+        setLoading(false);
+      })
+      .catch(function() {
+        showError('Could not reach the server. Check your connection and try again.');
+        setLoading(false);
+      });
+  });
+})();
+</script>
+</body>
+</html>

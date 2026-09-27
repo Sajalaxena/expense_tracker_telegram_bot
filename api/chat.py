@@ -11,9 +11,11 @@ import urllib.error
 from datetime import date
 from http.server import BaseHTTPRequestHandler
 
+from lib.auth import is_authenticated
 from lib.config import load_config_from_env
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
+from lib.ratelimit import check_rate_limit, get_client_id
 
 MAX_QUESTION_CHARS = 500
 MAX_HISTORY_TURNS = 10
@@ -129,6 +131,11 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             config = load_config_from_env()
+
+            if not is_authenticated(self.headers, config.session_secret):
+                self._send_response(401, {"error": "Unauthorized"})
+                return
+
             if not config.gemini_api_key:
                 self._send_response(200, {
                     "error": "AI chat is not configured. Set GEMINI_API_KEY to enable it."
@@ -136,6 +143,16 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+
+            decision = check_rate_limit(db.client, "chat", get_client_id(self.headers))
+            if not decision.allowed:
+                self._send_response(
+                    429,
+                    {"error": decision.message, "retryAfter": decision.retry_after},
+                    {"Retry-After": str(decision.retry_after)},
+                )
+                return
+
             context = _build_context(
                 db.all_rows(), db.get_all_active_subscriptions(), config, date.today()
             )
@@ -167,11 +184,13 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _send_response(self, status_code: int, data: dict):
+    def _send_response(self, status_code: int, data: dict, extra_headers: dict | None = None):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)

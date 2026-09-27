@@ -8,5 +8,12 @@
     "api/chat.py": {
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/api/page?page=index" },
+    { "source": "/dashboard.html", "destination": "/api/page?page=dashboard" },
+    { "source": "/daily-details.html", "destination": "/api/page?page=daily-details" },
+    { "source": "/insights.html", "destination": "/api/page?page=insights" },
+    { "source": "/fav-p.html", "destination": "/api/page?page=fav-p" }
+  ]
 }
