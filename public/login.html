@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0e14">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/pwa.js" defer></script>
 <title>Tracksy — Sign In</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,7 +51,7 @@ body {
 .card.shake { animation: shake 0.4s ease; }
 
 .brand { text-align: center; margin-bottom: 28px; }
-.brand .logo { font-size: 2rem; margin-bottom: 8px; }
+.brand .logo { display: block; margin: 0 auto 10px; border-radius: 14px; }
 .brand h1 {
   font-size: 1.3rem; font-weight: 700;
   background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
@@ -85,6 +92,14 @@ form { display: flex; flex-direction: column; gap: 16px; }
 
 .footnote { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 22px; }
 
+.install-btn {
+  width: 100%; margin-top: 12px; background: transparent; color: var(--text);
+  border: 1px solid var(--border-hover); border-radius: 12px; padding: 12px;
+  font-size: 0.85rem; font-family: inherit; cursor: pointer; transition: background 0.2s;
+}
+.install-btn:hover { background: rgba(99,102,241,0.1); }
+[hidden] { display: none !important; }
+
 @media (max-width: 420px) {
   .card { padding: 28px 22px; border-radius: 16px; }
 }
@@ -93,7 +108,7 @@ form { display: flex; flex-direction: column; gap: 16px; }
 <body>
 <div class="card" id="card">
   <div class="brand">
-    <div class="logo">🔒</div>
+    <img class="logo" src="/icons/icon-192.png" alt="" width="56" height="56">
     <h1>Tracksy</h1>
     <p>Sign in to view your finances</p>
   </div>
@@ -115,6 +130,8 @@ form { display: flex; flex-direction: column; gap: 16px; }
       <span class="btn-label">Sign In</span>
     </button>
   </form>
+
+  <button type="button" class="install-btn" data-install-app hidden>⬇ Install Tracksy app</button>
 
   <div class="footnote">Private access only — Tracksy expense tracker</div>
 </div>

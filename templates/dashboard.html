@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0e14">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/pwa.js" defer></script>
 <title>Tracksy — Expense Dashboard</title>
 <style>
 *, *::before, *::after {
@@ -230,6 +237,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       <a href="insights.html" style="font-size:0.8rem;color:var(--accent-green);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🤖 AI Insights</a>
       <a href="fav-p.html" style="font-size:0.8rem;color:var(--accent-pink);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">💖 Fav P</a>
       <select id="monthSelect" class="mono"></select>
+      <button type="button" data-install-app hidden style="font-size:0.8rem;color:#fff;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));cursor:pointer;padding:8px 16px;border:none;border-radius:20px;font-family:inherit;font-weight:600;">⬇ Install App</button>
       <button type="button" id="logoutBtn" style="font-size:0.8rem;color:var(--text-secondary);background:transparent;cursor:pointer;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;font-family:inherit;">🚪 Logout</button>
     </div>
   </header>
