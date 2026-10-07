@@ -89,6 +89,48 @@ class SupabaseDB:
 
         return row
 
+    def delete_transaction(self, txn_id: int, chat_id: Optional[int] = None) -> Optional[dict]:
+        """
+        Delete a single transaction by id.
+
+        Args:
+            txn_id: The transaction row id.
+            chat_id: If given, only delete when the row belongs to this chat
+                (used by the Telegram bot). The web dashboard passes None.
+
+        Returns:
+            A dict with all fields of the deleted row, or None if no matching
+            transaction exists.
+        """
+        query = self.client.table("txns").delete().eq("id", txn_id)
+        if chat_id is not None:
+            query = query.eq("chat_id", chat_id)
+        result = query.execute()
+
+        return result.data[0] if result.data else None
+
+    def recent(self, chat_id: int, limit: int = 10) -> list[dict]:
+        """
+        Return the most recent transactions for a chat_id, newest first.
+
+        Args:
+            chat_id: The Telegram chat ID.
+            limit: Maximum number of rows to return.
+
+        Returns:
+            A list of dicts, each containing all fields of a transaction row.
+        """
+        result = (
+            self.client.table("txns")
+            .select("*")
+            .eq("chat_id", chat_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        return result.data if result.data else []
+
     def month_total(self, month: str) -> float:
         """
         Sum expense amounts for a given month.
@@ -227,27 +269,30 @@ class SupabaseDB:
 
         return result.data if result.data else []
 
-    def deactivate_subscription(self, sub_id: int, chat_id: int) -> bool:
+    def deactivate_subscription(self, sub_id: int, chat_id: Optional[int] = None) -> bool:
         """
         Mark a subscription as inactive.
 
-        Sets active=FALSE for the subscription matching the given id and chat_id.
+        Sets active=FALSE for the subscription matching the given id (and
+        chat_id, when given).
 
         Args:
             sub_id: The subscription row id.
-            chat_id: The Telegram chat ID (ensures ownership).
+            chat_id: The Telegram chat ID (ensures ownership). The web
+                dashboard passes None.
 
         Returns:
             True if a matching active subscription was found and deactivated,
             False otherwise.
         """
-        result = (
+        query = (
             self.client.table("subscriptions")
             .update({"active": False})
             .eq("id", sub_id)
-            .eq("chat_id", chat_id)
             .eq("active", True)
-            .execute()
         )
+        if chat_id is not None:
+            query = query.eq("chat_id", chat_id)
+        result = query.execute()
 
         return len(result.data) > 0

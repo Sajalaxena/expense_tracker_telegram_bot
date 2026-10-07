@@ -215,6 +215,14 @@ header h1 span { -webkit-text-fill-color: transparent; }
   font-size: 0.75rem; color: var(--text-secondary);
 }
 
+.del-btn {
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--text-muted); cursor: pointer; font-size: 0.8rem; line-height: 1;
+  padding: 4px 6px; transition: all 0.2s ease;
+}
+.del-btn:hover { color: var(--accent-red); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.del-btn:disabled { opacity: 0.4; cursor: wait; }
+
 .daily-burn-svg { width: 100%; overflow: visible; }
 .mom-container { width: 100%; }
 .mom-svg { width: 100%; overflow: visible; }
@@ -404,6 +412,40 @@ header h1 span { -webkit-text-fill-color: transparent; }
       var formatted = currency + (isNegative ? '-' : '') + result;
       if (decPart) formatted += '.' + decPart;
       return formatted;
+    }
+
+    // ===== Delete =====
+    // POSTs to /api/delete; calls onDone() only once the server confirms.
+    function deleteItem(kind, id, btn, onDone) {
+      btn.disabled = true;
+      fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: kind, id: id })
+      })
+        .then(function(r) {
+          if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+          return r.json().then(function(json) {
+            if (!r.ok) throw new Error(json.error || 'Delete failed');
+          });
+        })
+        .then(onDone)
+        .catch(function(err) {
+          btn.disabled = false;
+          alert('Could not delete: ' + err.message);
+        });
+    }
+
+    // Clears a section's rendered content and shows its placeholder with `text`.
+    function showEmpty(section, contentClass, text) {
+      var existing = section.querySelector('.' + contentClass);
+      if (existing) existing.remove();
+      var placeholder = section.querySelector('.section-placeholder');
+      if (!placeholder) {
+        placeholder = document.createElement('div'); placeholder.className = 'section-placeholder';
+        section.appendChild(placeholder);
+      }
+      placeholder.textContent = text; placeholder.style.color = 'var(--text-muted)';
     }
 
     // ===== Utility Functions =====
@@ -931,7 +973,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       var placeholder = section.querySelector('.section-placeholder');
 
       if (!subscriptionsData || subscriptionsData.length === 0) {
-        if (placeholder) { placeholder.textContent = 'No active subscriptions'; placeholder.style.color = 'var(--text-muted)'; }
+        showEmpty(section, 'sub-cost-content', 'No active subscriptions');
         return;
       }
 
@@ -956,7 +998,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       var placeholder = section.querySelector('.section-placeholder');
 
       if (!subscriptionsData || subscriptionsData.length === 0) {
-        if (placeholder) { placeholder.textContent = 'No active subscriptions'; placeholder.style.color = 'var(--text-muted)'; }
+        showEmpty(section, 'subscriptions-content', 'No active subscriptions');
         return;
       }
 
@@ -972,7 +1014,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
           cycleLabel = '/month';
         }
         totalMonthly += monthlyCost;
-        items.push({ name: sub.name, monthlyCost: monthlyCost, cycleLabel: cycleLabel });
+        items.push({ id: sub.id, name: sub.name, monthlyCost: monthlyCost, cycleLabel: cycleLabel });
       }
 
       var html = '<div style="display:flex;flex-direction:column;gap:10px;">';
@@ -980,7 +1022,8 @@ header h1 span { -webkit-text-fill-color: transparent; }
         var item = items[j];
         html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-hover);border-radius:8px;border-left:3px solid var(--accent-purple);">';
         html += '<span style="font-size:0.85rem;color:var(--text-primary);text-transform:capitalize;">'+item.name+'</span>';
-        html += '<span style="font-size:0.8rem;font-family:\'SF Mono\',Consolas,monospace;color:var(--accent-purple);">'+indianFormat(item.monthlyCost)+item.cycleLabel+'</span></div>';
+        html += '<span style="display:flex;align-items:center;gap:8px;"><span style="font-size:0.8rem;font-family:\'SF Mono\',Consolas,monospace;color:var(--accent-purple);">'+indianFormat(item.monthlyCost)+item.cycleLabel+'</span>';
+        html += '<button class="del-btn" data-sub-id="'+item.id+'" title="Remove subscription">🗑</button></span></div>';
       }
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid var(--border);margin-top:4px;">';
       html += '<span style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Total</span>';
@@ -991,6 +1034,19 @@ header h1 span { -webkit-text-fill-color: transparent; }
       if (existing) existing.remove();
       var wrapper = document.createElement('div'); wrapper.className = 'subscriptions-content';
       wrapper.innerHTML = html; section.appendChild(wrapper);
+
+      wrapper.addEventListener('click', function(e) {
+        var btn = e.target.closest('.del-btn');
+        if (!btn) return;
+        var id = parseInt(btn.getAttribute('data-sub-id'), 10);
+        var sub = subscriptionsData.filter(function(s) { return s.id === id; })[0];
+        if (!sub || !confirm('Remove subscription "' + sub.name + '"?')) return;
+        deleteItem('subscription', id, btn, function() {
+          subscriptionsData = subscriptionsData.filter(function(s) { return s.id !== id; });
+          renderSubscriptionCostCard();
+          renderActiveSubscriptions();
+        });
+      });
     }
 
     // ===== Recent Activity =====
@@ -1005,7 +1061,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       var entries = transactions.slice(0, 20);
 
       if (entries.length === 0) {
-        if (placeholder) placeholder.textContent = 'No transactions for this month'; return;
+        showEmpty(section, 'activity-content', 'No transactions for this month'); return;
       }
 
       var html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
@@ -1014,6 +1070,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       html += '<th style="text-align:left;padding:8px 12px;color:var(--text-secondary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Category</th>';
       html += '<th style="text-align:left;padding:8px 12px;color:var(--text-secondary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Note</th>';
       html += '<th style="text-align:right;padding:8px 12px;color:var(--text-secondary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Amount</th>';
+      html += '<th style="width:1%;"></th>';
       html += '</tr></thead><tbody>';
 
       for (var i = 0; i < entries.length; i++) {
@@ -1030,6 +1087,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
         html += '<td style="padding:8px 12px;text-transform:capitalize;">'+entry.category+'</td>';
         html += '<td style="padding:8px 12px;color:var(--text-secondary);">'+(entry.note||'')+'</td>';
         html += '<td style="padding:8px 12px;text-align:right;font-family:\'SF Mono\',Consolas,monospace;color:'+amountColor+';">'+prefix+indianFormat(entry.amount)+'</td>';
+        html += '<td style="padding:8px 4px 8px 0;text-align:right;"><button class="del-btn" data-txn-id="'+entry.id+'" title="Delete entry">🗑</button></td>';
         html += '</tr>';
       }
       html += '</tbody></table></div>';
@@ -1039,6 +1097,18 @@ header h1 span { -webkit-text-fill-color: transparent; }
       if (existing) existing.remove();
       var wrapper = document.createElement('div'); wrapper.className = 'activity-content';
       wrapper.innerHTML = html; section.appendChild(wrapper);
+
+      wrapper.addEventListener('click', function(e) {
+        var btn = e.target.closest('.del-btn');
+        if (!btn) return;
+        var id = parseInt(btn.getAttribute('data-txn-id'), 10);
+        var entry = data.filter(function(t) { return t.id === id; })[0];
+        if (!entry || !confirm('Delete ' + indianFormat(entry.amount) + ' · ' + entry.category + (entry.note ? ' — ' + entry.note : '') + '?')) return;
+        deleteItem('expense', id, btn, function() {
+          data = data.filter(function(t) { return t.id !== id; });
+          renderDashboard(monthStr);
+        });
+      });
     }
 
     // ===== Spending Insights =====

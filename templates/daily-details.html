@@ -178,6 +178,15 @@ header h1 {
   font-family: 'SF Mono', Consolas, monospace; font-size: 0.8rem; font-weight: 600; color: var(--text);
 }
 
+.day-item .right { display: flex; align-items: center; gap: 8px; }
+.del-btn {
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--muted); cursor: pointer; font-size: 0.8rem; line-height: 1;
+  padding: 4px 6px; transition: all 0.2s ease;
+}
+.del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.del-btn:disabled { opacity: 0.4; cursor: wait; }
+
 .empty { text-align: center; padding: 60px; color: var(--muted); font-size: 0.9rem; }
 
 @media (max-width: 768px) {
@@ -267,6 +276,27 @@ header h1 {
   ];
 
   var SAMPLE_CONFIG = { currency: '₹', monthlyBudget: 50000 };
+
+  // POSTs to /api/delete; calls onDone() only once the server confirms.
+  function deleteItem(kind, id, btn, onDone) {
+    btn.disabled = true;
+    fetch('/api/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: kind, id: id })
+    })
+      .then(function(r) {
+        if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+        return r.json().then(function(json) {
+          if (!r.ok) throw new Error(json.error || 'Delete failed');
+        });
+      })
+      .then(onDone)
+      .catch(function(err) {
+        btn.disabled = false;
+        alert('Could not delete: ' + err.message);
+      });
+  }
 
   function initDailyDetails(expenses, apiConfig) {
     var data = expenses;
@@ -542,7 +572,8 @@ header h1 {
         for (var it = 0; it < items.length; it++) {
           html += '<div class="day-item">';
           html += '<div><span class="cat">' + items[it].category + '</span><span class="note">' + (items[it].note || '') + '</span></div>';
-          html += '<span class="amt">' + indianFormat(items[it].amount) + '</span>';
+          html += '<div class="right"><span class="amt">' + indianFormat(items[it].amount) + '</span>';
+          html += '<button class="del-btn" data-txn-id="' + items[it].id + '" title="Delete entry">🗑</button></div>';
           html += '</div>';
         }
         html += '</div></div>';
@@ -553,6 +584,18 @@ header h1 {
 
     populateSelect();
     populateCategorySelect();
+
+    document.getElementById('daysList').addEventListener('click', function(e) {
+      var btn = e.target.closest('.del-btn');
+      if (!btn) return;
+      var id = parseInt(btn.getAttribute('data-txn-id'), 10);
+      var entry = data.filter(function(t) { return t.id === id; })[0];
+      if (!entry || !confirm('Delete ' + indianFormat(entry.amount) + ' · ' + entry.category + (entry.note ? ' — ' + entry.note : '') + '?')) return;
+      deleteItem('expense', id, btn, function() {
+        data = data.filter(function(t) { return t.id !== id; });
+        render();
+      });
+    });
 
     document.getElementById('searchInput').addEventListener('input', render);
     document.getElementById('fromDate').addEventListener('change', render);

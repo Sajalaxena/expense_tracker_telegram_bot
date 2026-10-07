@@ -107,6 +107,8 @@ def _handle_command(text: str, chat_id: int, db: SupabaseDB, config) -> str:
             return _cmd_total(db, config)
         elif command == "/undo":
             return _cmd_undo(chat_id, db, config)
+        elif command == "/delete":
+            return _cmd_delete(args, chat_id, db, config)
         elif command == "/budget":
             return _cmd_budget(db, config)
         elif command == "/setbudget":
@@ -139,6 +141,7 @@ def _cmd_start() -> str:
         "/help — usage instructions\n"
         "/total — this month's spending\n"
         "/undo — delete last entry\n"
+        "/delete — delete a specific entry\n"
         "/budget — per-category budgets"
     )
 
@@ -158,6 +161,7 @@ def _cmd_help() -> str:
         "Commands:\n"
         "/total — current month total vs budget\n"
         "/undo — remove last transaction\n"
+        "/delete — list recent entries / delete one by #id\n"
         "/budget — per-category budget status\n"
         "/addsub — add a subscription\n"
         "/removesub — remove a subscription\n"
@@ -207,6 +211,38 @@ def _cmd_undo(chat_id: int, db: SupabaseDB, config) -> str:
 
     amount_str = indian_format(entry["amount"], currency)
     return f"🗑️ Deleted: {amount_str} • {entry['category']} — {entry['note']}"
+
+
+def _cmd_delete(args: list, chat_id: int, db: SupabaseDB, config) -> str:
+    """Handle /delete — list recent entries, or delete one by its #id."""
+    currency = config.currency
+
+    if not args:
+        rows = db.recent(chat_id, limit=10)
+        if not rows:
+            return "No entries to delete."
+
+        lines = ["🗂️ Recent entries:\n"]
+        for row in rows:
+            amount_str = indian_format(row["amount"], currency)
+            lines.append(
+                f"#{row['id']} • {row['date']} • {amount_str} • "
+                f"{row['category']} — {row['note']}"
+            )
+        lines.append(f"\nDelete one with /delete <id>, e.g. /delete {rows[0]['id']}")
+        return "\n".join(lines)
+
+    try:
+        txn_id = int(args[0].lstrip("#"))
+    except ValueError:
+        return "Usage: /delete <id>\nSend /delete with no id to see recent entries."
+
+    entry = db.delete_transaction(txn_id, chat_id)
+    if entry is None:
+        return f"No entry found with id #{txn_id}."
+
+    amount_str = indian_format(entry["amount"], currency)
+    return f"🗑️ Deleted #{txn_id}: {amount_str} • {entry['category']} — {entry['note']}"
 
 
 def _cmd_budget(db: SupabaseDB, config) -> str:
@@ -408,7 +444,7 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
 
     # Step 2: Store transaction (wrapped for Supabase failure handling)
     try:
-        db.add(txn, chat_id)
+        txn_id = db.add(txn, chat_id)
     except Exception:
         print(f"DB error storing transaction: {traceback.format_exc()}")
         return "⚠️ Service temporarily unavailable, please try again."
@@ -421,14 +457,14 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
         print(f"DB error fetching month total: {traceback.format_exc()}")
         # Transaction was stored successfully, just can't get totals
         amount_str = indian_format(txn.amount, currency)
-        return f"✅ {amount_str} • {txn.category}\n(Could not fetch monthly total)"
+        return f"✅ {amount_str} • {txn.category} (#{txn_id})\n(Could not fetch monthly total)"
 
     # Step 4: Build confirmation reply
     amount_str = indian_format(txn.amount, currency)
     total_str = indian_format(month_total, currency)
     budget_str = indian_format(budget, currency)
 
-    reply = f"✅ {amount_str} • {txn.category}\nMonth: {total_str} / {budget_str}"
+    reply = f"✅ {amount_str} • {txn.category} (#{txn_id})\nMonth: {total_str} / {budget_str}"
 
     # Step 5: Check overspend (expenses only, skip fav_p)
     if txn.type == "expense" and txn.category != "fav_p":
@@ -441,6 +477,6 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
 
     # For fav_p, show a different reply (not counted in budget)
     if txn.category == "fav_p":
-        reply = f"✅ {amount_str} • Personal Favorites\n(Not counted in monthly budget)"
+        reply = f"✅ {amount_str} • Personal Favorites (#{txn_id})\n(Not counted in monthly budget)"
 
     return reply

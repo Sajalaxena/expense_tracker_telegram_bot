@@ -189,6 +189,35 @@ body {
   color: var(--text-secondary);
 }
 
+.table-card td.del-col {
+  width: 1%;
+  padding-left: 0;
+  text-align: right;
+}
+
+.del-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 4px 6px;
+  transition: all 0.2s ease;
+}
+
+.del-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.del-btn:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -238,6 +267,7 @@ body {
           <th>Date</th>
           <th>Note</th>
           <th>Amount</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="fav-table">
@@ -267,6 +297,27 @@ body {
       document.getElementById('empty-state').style.display = 'block';
     });
 
+  // POSTs to /api/delete; calls onDone() only once the server confirms.
+  function deleteItem(kind, id, btn, onDone) {
+    btn.disabled = true;
+    fetch('/api/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: kind, id: id })
+    })
+      .then(function(r) {
+        if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+        return r.json().then(function(json) {
+          if (!r.ok) throw new Error(json.error || 'Delete failed');
+        });
+      })
+      .then(onDone)
+      .catch(function(err) {
+        btn.disabled = false;
+        alert('Could not delete: ' + err.message);
+      });
+  }
+
   function indianFormat(amount, currency) {
     currency = currency || '₹';
     amount = Math.round(amount * 100) / 100;
@@ -290,11 +341,35 @@ body {
     return currency + formatted + decPart;
   }
 
+  var allItems = [];
+  var pageConfig = {};
+  var activeMonth = null;  // null = "All"
+
+  document.getElementById('fav-table').addEventListener('click', function(e) {
+    var btn = e.target.closest('.del-btn');
+    if (!btn) return;
+    var id = parseInt(btn.getAttribute('data-txn-id'), 10);
+    var entry = allItems.filter(function(r) { return r.id === id; })[0];
+    if (!entry || !confirm('Delete ' + indianFormat(parseFloat(entry.amount), pageConfig.currency) + (entry.note ? ' — ' + entry.note : '') + '?')) return;
+    deleteItem('expense', id, btn, function() {
+      initPage(allItems.filter(function(r) { return r.id !== id; }), pageConfig);
+    });
+  });
+
+  // Safe to call again after a delete: rebuilds totals, month filters and the table.
   function initPage(items, config) {
     var currency = config.currency || '₹';
+    allItems = items;
+    pageConfig = config;
+
+    var filterDiv = document.getElementById('month-filter');
+    filterDiv.innerHTML = '';
 
     if (!items.length) {
-      document.getElementById('empty-state').style.display = 'block';
+      document.getElementById('total-spent').textContent = indianFormat(0, currency);
+      document.getElementById('month-spent').textContent = indianFormat(0, currency);
+      document.getElementById('item-count').textContent = 0;
+      renderTable([], currency);
       return;
     }
 
@@ -322,12 +397,13 @@ body {
     months.sort().reverse();
 
     // Month filter buttons
-    var filterDiv = document.getElementById('month-filter');
+    if (activeMonth && !monthSet[activeMonth]) activeMonth = null;
+
     var allBtn = document.createElement('button');
     allBtn.textContent = 'All';
-    allBtn.className = 'active';
-    allBtn.onclick = function() { renderTable(items, currency); setActive(allBtn); };
+    allBtn.onclick = function() { activeMonth = null; renderTable(items, currency); setActive(allBtn); };
     filterDiv.appendChild(allBtn);
+    var activeBtn = allBtn;
 
     months.forEach(function(m) {
       var btn = document.createElement('button');
@@ -335,19 +411,25 @@ body {
       var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       btn.textContent = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
       btn.onclick = function() {
-        var filtered = items.filter(function(r) { return r.date && r.date.startsWith(m); });
-        renderTable(filtered, currency);
+        activeMonth = m;
+        renderTable(itemsForMonth(m), currency);
         setActive(btn);
       };
       filterDiv.appendChild(btn);
+      if (m === activeMonth) activeBtn = btn;
     });
+
+    function itemsForMonth(m) {
+      return items.filter(function(r) { return r.date && r.date.startsWith(m); });
+    }
 
     function setActive(btn) {
       filterDiv.querySelectorAll('button').forEach(function(b) { b.className = ''; });
       btn.className = 'active';
     }
 
-    renderTable(items, currency);
+    setActive(activeBtn);
+    renderTable(activeMonth ? itemsForMonth(activeMonth) : items, currency);
   }
 
   function renderTable(items, currency) {
@@ -366,6 +448,7 @@ body {
         '<td class="date-col">' + (r.date || '') + '</td>' +
         '<td class="note-col">' + (r.note || '') + '</td>' +
         '<td class="amount">' + indianFormat(parseFloat(r.amount), currency) + '</td>' +
+        '<td class="del-col"><button class="del-btn" data-txn-id="' + r.id + '" title="Delete entry">🗑</button></td>' +
         '</tr>';
     }).join('');
   }
