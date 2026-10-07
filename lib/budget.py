@@ -80,3 +80,59 @@ def check_overspend(db, config, category: str, month: str) -> str | None:
         return f"⚠️ {cat_display} is now {overspend_str} over budget!"
 
     return None
+
+
+# Fraction of a budget at which an early warning is sent.
+WARN_FRACTION = 0.8
+
+
+def budget_alerts(db, config, month: str, added: dict[str, float]) -> list[str]:
+    """
+    Alerts triggered by entries just logged in `month`.
+
+    `added` maps category -> amount just added (expenses only, fav_p excluded).
+    For each category with a cap, and for the overall monthly budget:
+      * over the cap -> overspend warning (every time, like check_overspend)
+      * crossed WARN_FRACTION with these entries -> a one-time heads-up
+
+    Args:
+        db: SupabaseDB-like object with category_total and month_total.
+        config: AppConfig with budgets, monthly_budget and currency.
+        month: "YYYY-MM" the entries were logged in.
+        added: {category: amount added by this message}.
+
+    Returns:
+        A list of alert lines (possibly empty).
+    """
+    currency = config.currency
+    alerts = []
+
+    for category, amount in added.items():
+        cap = config.budgets.get(category)
+        if not cap:
+            continue
+        after = db.category_total(month, category)
+        before = after - amount
+        name = category.capitalize()
+        if after > cap:
+            alerts.append(f"⚠️ {name} is now {indian_format(after - cap, currency)} over budget!")
+        elif before < cap * WARN_FRACTION <= after:
+            alerts.append(
+                f"🟡 {name} has used {int(after / cap * 100)}% of its "
+                f"{indian_format(cap, currency)} budget"
+            )
+
+    total_added = sum(added.values())
+    budget = config.monthly_budget
+    if total_added and budget:
+        after = db.month_total(month)
+        before = after - total_added
+        if before <= budget < after:
+            alerts.append(f"🔴 You've crossed this month's {indian_format(budget, currency)} budget")
+        elif before < budget * WARN_FRACTION <= after <= budget:
+            alerts.append(
+                f"🟡 You've used {int(after / budget * 100)}% of this month's "
+                f"{indian_format(budget, currency)} budget"
+            )
+
+    return alerts

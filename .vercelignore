@@ -9,3 +9,5 @@ config.json
 config.prod.json
 Dockerfile
 render.yaml
+supabase/
+requirements-dev.txt

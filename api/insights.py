@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 from lib.auth import is_authenticated
-from lib.config import load_config_from_env
+from lib.config import apply_budget_overrides, load_config_from_env
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
 from lib.ratelimit import check_rate_limit, get_client_id
@@ -132,6 +132,7 @@ class handler(BaseHTTPRequestHandler):
             month = (query.get("month") or [None])[0]
 
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+            apply_budget_overrides(config, db)
 
             decision = check_rate_limit(db.client, "insights", get_client_id(self.headers))
             if not decision.allowed:

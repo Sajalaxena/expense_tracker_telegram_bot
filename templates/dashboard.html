@@ -223,6 +223,48 @@ header h1 span { -webkit-text-fill-color: transparent; }
 .del-btn:hover { color: var(--accent-red); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
 .del-btn:disabled { opacity: 0.4; cursor: wait; }
 
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.edit-btn {
+  background: transparent; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+.edit-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  background: var(--bg-card-solid); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md); width: 100%; max-width: 440px; max-height: 90vh;
+  display: flex; flex-direction: column;
+}
+.modal h2 { font-size: 1rem; padding: 20px 20px 4px; }
+.modal .modal-sub { font-size: 0.75rem; color: var(--text-muted); padding: 0 20px 12px; }
+.modal-body { overflow-y: auto; padding: 4px 20px 12px; }
+.budget-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--bg-hover);
+}
+.budget-row label { font-size: 0.85rem; text-transform: capitalize; color: var(--text-primary); }
+.budget-row.total label { font-weight: 700; text-transform: none; }
+.budget-row input {
+  width: 130px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-primary); padding: 7px 10px; font-size: 0.85rem; text-align: right;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+.budget-row input:focus { outline: none; border-color: var(--accent-blue); }
+.modal-error { color: var(--accent-red); font-size: 0.8rem; padding: 0 20px; min-height: 1em; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px 20px; }
+.modal-actions button {
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem; padding: 8px 16px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+}
+.modal-actions button.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.modal-actions button:disabled { opacity: 0.5; cursor: wait; }
+
 .daily-burn-svg { width: 100%; overflow: visible; }
 .mom-container { width: 100%; }
 .mom-svg { width: 100%; overflow: visible; }
@@ -287,7 +329,10 @@ header h1 span { -webkit-text-fill-color: transparent; }
 
   <!-- Budgets & Alerts Section -->
   <div class="card" id="budgetsAlertsSection">
-    <div class="card-title">Budgets &amp; Alerts</div>
+    <div class="card-head">
+      <div class="card-title">Budgets &amp; Alerts</div>
+      <button type="button" class="edit-btn" id="editBudgetsBtn">✏️ Edit</button>
+    </div>
     <div class="section-placeholder">loading...</div>
   </div>
 
@@ -329,6 +374,19 @@ header h1 span { -webkit-text-fill-color: transparent; }
     <div class="card-title">Spending Insights</div>
     <div class="section-placeholder">loading...</div>
   </div>
+</div>
+
+<div class="modal-backdrop" id="budgetModal" hidden>
+  <form class="modal" id="budgetForm" novalidate>
+    <h2>Edit budgets</h2>
+    <div class="modal-sub">Monthly caps. Leave a category empty for no cap. Also settable from Telegram with /setbudget.</div>
+    <div class="modal-body" id="budgetFields"></div>
+    <div class="modal-error" id="budgetError"></div>
+    <div class="modal-actions">
+      <button type="button" id="budgetCancel">Cancel</button>
+      <button type="submit" class="primary" id="budgetSave">Save</button>
+    </div>
+  </form>
 </div>
 
 <script>
@@ -385,9 +443,15 @@ header h1 span { -webkit-text-fill-color: transparent; }
     var config = {
       currency: apiConfig.currency || "\u20B9",
       monthlyBudget: apiConfig.monthlyBudget || 50000,
-      budgets: apiConfig.budgets || {}
+      budgets: apiConfig.budgets || {},
+      categories: apiConfig.categories || Object.keys(apiConfig.budgets || {})
     };
     var subscriptionsData = apiSubscriptions;
+
+    // Escape user-supplied text (notes, names) before putting it into innerHTML.
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     // ===== Indian Number Formatting =====
     function indianFormat(amount, currency) {
@@ -682,7 +746,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       for (var i = 0; i < cats.length; i++) {
         var pct = ((catTotals[cats[i]] / total) * 100).toFixed(1);
         var clr = CATEGORY_COLORS[cats[i]] || CATEGORY_COLORS.other;
-        ledgerHTML += '<div class="donut-ledger-item"><div class="donut-ledger-left"><div class="donut-ledger-swatch" style="background:'+clr+'"></div><span class="donut-ledger-cat">'+cats[i]+'</span></div><div class="donut-ledger-right">'+indianFormat(catTotals[cats[i]])+' ('+pct+'%)</div></div>';
+        ledgerHTML += '<div class="donut-ledger-item"><div class="donut-ledger-left"><div class="donut-ledger-swatch" style="background:'+clr+'"></div><span class="donut-ledger-cat">'+esc(cats[i])+'</span></div><div class="donut-ledger-right">'+indianFormat(catTotals[cats[i]])+' ('+pct+'%)</div></div>';
       }
 
       var container = document.createElement('div'); container.className = 'donut-container';
@@ -909,7 +973,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       var categories = Object.keys(budgets);
 
       if (categories.length === 0) {
-        if (placeholder) placeholder.textContent = 'No budget caps configured'; return;
+        showEmpty(section, 'budgets-content', 'No budget caps yet — tap Edit to add some'); return;
       }
 
       var categorySpend = {};
@@ -931,7 +995,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
           var item = overBudgetItems[a];
           var catDisplay = item.category.charAt(0).toUpperCase() + item.category.slice(1);
           alertHtml += '<div style="display:flex;align-items:center;gap:8px;'+(a>0?'margin-top:8px;':'')+'font-size:0.85rem;color:var(--accent-red);">';
-          alertHtml += '<span>\u26A0\uFE0F</span><span>'+catDisplay+' \u2014 '+indianFormat(item.overspend)+' over budget</span></div>';
+          alertHtml += '<span>\u26A0\uFE0F</span><span>'+esc(catDisplay)+' \u2014 '+indianFormat(item.overspend)+' over budget</span></div>';
         }
         alertHtml += '</div>';
       }
@@ -944,7 +1008,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
         var barColor = isOver ? 'var(--accent-red)' : (pct > 70 ? 'var(--accent-yellow)' : 'var(--accent-green)');
         var textColor = isOver ? 'var(--accent-red)' : 'var(--text-primary)';
         html += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">';
-        html += '<span style="font-size:0.85rem;color:'+textColor+';text-transform:capitalize;">'+catName+'</span>';
+        html += '<span style="font-size:0.85rem;color:'+textColor+';text-transform:capitalize;">'+esc(catName)+'</span>';
         html += '<span style="font-size:0.75rem;font-family:\'SF Mono\',Consolas,monospace;color:'+textColor+';">'+indianFormat(spent)+' / '+indianFormat(cap)+' ('+Math.round(pct)+'%)</span></div>';
         html += '<div style="width:100%;height:6px;background:var(--bg-hover);border-radius:3px;position:relative;overflow:hidden;">';
         html += '<div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+barColor+';border-radius:3px;"></div></div></div>';
@@ -1021,7 +1085,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       for (var j = 0; j < items.length; j++) {
         var item = items[j];
         html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-hover);border-radius:8px;border-left:3px solid var(--accent-purple);">';
-        html += '<span style="font-size:0.85rem;color:var(--text-primary);text-transform:capitalize;">'+item.name+'</span>';
+        html += '<span style="font-size:0.85rem;color:var(--text-primary);text-transform:capitalize;">'+esc(item.name)+'</span>';
         html += '<span style="display:flex;align-items:center;gap:8px;"><span style="font-size:0.8rem;font-family:\'SF Mono\',Consolas,monospace;color:var(--accent-purple);">'+indianFormat(item.monthlyCost)+item.cycleLabel+'</span>';
         html += '<button class="del-btn" data-sub-id="'+item.id+'" title="Remove subscription">🗑</button></span></div>';
       }
@@ -1084,8 +1148,8 @@ header h1 span { -webkit-text-fill-color: transparent; }
         var dateDisplay = parseInt(dateParts[2],10) + ' ' + monthNames[parseInt(dateParts[1],10)-1];
         html += '<tr style="'+rowBorder+'">';
         html += '<td style="padding:8px 12px;font-family:\'SF Mono\',Consolas,monospace;color:var(--text-secondary);font-size:0.8rem;">'+dateDisplay+'</td>';
-        html += '<td style="padding:8px 12px;text-transform:capitalize;">'+entry.category+'</td>';
-        html += '<td style="padding:8px 12px;color:var(--text-secondary);">'+(entry.note||'')+'</td>';
+        html += '<td style="padding:8px 12px;text-transform:capitalize;">'+esc(entry.category)+'</td>';
+        html += '<td style="padding:8px 12px;color:var(--text-secondary);">'+esc(entry.note)+'</td>';
         html += '<td style="padding:8px 12px;text-align:right;font-family:\'SF Mono\',Consolas,monospace;color:'+amountColor+';">'+prefix+indianFormat(entry.amount)+'</td>';
         html += '<td style="padding:8px 4px 8px 0;text-align:right;"><button class="del-btn" data-txn-id="'+entry.id+'" title="Delete entry">🗑</button></td>';
         html += '</tr>';
@@ -1175,7 +1239,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
       for (var n = 0; n < insights.length; n++) {
         html += '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--bg-hover);border:1px solid var(--border);border-radius:8px;">';
         html += '<span style="font-size:1.2rem;line-height:1;">'+insights[n].icon+'</span>';
-        html += '<span style="font-size:0.85rem;color:var(--text-primary);line-height:1.5;">'+insights[n].text+'</span></div>';
+        html += '<span style="font-size:0.85rem;color:var(--text-primary);line-height:1.5;">'+esc(insights[n].text)+'</span></div>';
       }
       html += '</div>';
 
@@ -1246,6 +1310,83 @@ header h1 span { -webkit-text-fill-color: transparent; }
       renderRecentActivity(monthStr);
       renderSpendingInsights(monthStr);
     }
+
+    // ===== Budget Editor =====
+    (function setupBudgetEditor() {
+      var modal = document.getElementById('budgetModal');
+      var form = document.getElementById('budgetForm');
+      var fields = document.getElementById('budgetFields');
+      var errorEl = document.getElementById('budgetError');
+      var saveBtn = document.getElementById('budgetSave');
+
+      function row(key, label, value, extraClass) {
+        return '<div class="budget-row' + (extraClass ? ' ' + extraClass : '') + '">' +
+          '<label for="budget-' + esc(key) + '">' + esc(label) + '</label>' +
+          '<input type="number" min="0" step="1" inputmode="numeric" id="budget-' + esc(key) + '" data-key="' + esc(key) + '"' +
+          ' value="' + (value ? value : '') + '" placeholder="no cap"></div>';
+      }
+
+      function open() {
+        var html = row('_monthly', 'Overall monthly budget', config.monthlyBudget, 'total');
+        var cats = config.categories.slice();
+        Object.keys(config.budgets).forEach(function(c) { if (cats.indexOf(c) === -1) cats.push(c); });
+        cats.sort().forEach(function(c) { html += row(c, c, config.budgets[c]); });
+        fields.innerHTML = html;
+        errorEl.textContent = '';
+        modal.hidden = false;
+        fields.querySelector('input').focus();
+      }
+
+      function close() { modal.hidden = true; }
+
+      document.getElementById('editBudgetsBtn').addEventListener('click', open);
+      document.getElementById('budgetCancel').addEventListener('click', close);
+      modal.addEventListener('mousedown', function(e) { if (e.target === modal) close(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var payload = { budgets: {} };
+        var changed = false;
+        var inputs = fields.querySelectorAll('input');
+        for (var i = 0; i < inputs.length; i++) {
+          var key = inputs[i].getAttribute('data-key');
+          var raw = inputs[i].value.trim();
+          var value = raw === '' ? 0 : Number(raw);
+          if (isNaN(value) || value < 0) { errorEl.textContent = 'Budgets must be positive numbers.'; return; }
+          if (key === '_monthly') {
+            if (!value) { errorEl.textContent = 'The overall monthly budget is required.'; return; }
+            if (value !== config.monthlyBudget) { payload.monthlyBudget = value; changed = true; }
+          } else if (value !== (config.budgets[key] || 0)) {
+            payload.budgets[key] = value; changed = true;
+          }
+        }
+        if (!changed) { close(); return; }
+
+        saveBtn.disabled = true;
+        errorEl.textContent = '';
+        fetch('/api/budgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(function(r) {
+            if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+            return r.json().then(function(json) {
+              if (!r.ok) throw new Error(json.error || 'Could not save budgets');
+              return json;
+            });
+          })
+          .then(function(json) {
+            config.monthlyBudget = json.monthlyBudget;
+            config.budgets = json.budgets || {};
+            close();
+            renderDashboard(document.getElementById('monthSelect').value);
+          })
+          .catch(function(err) { errorEl.textContent = err.message; })
+          .finally(function() { saveBtn.disabled = false; });
+      });
+    })();
 
     // ===== Logout =====
     document.getElementById('logoutBtn').addEventListener('click', function() {

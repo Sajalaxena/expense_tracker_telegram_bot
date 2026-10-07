@@ -1,20 +1,43 @@
 """Telegram webhook handler — Vercel serverless function.
 
-Receives POST requests from Telegram, validates the secret token,
-routes commands and plain messages to their respective handlers,
-and always returns HTTP 200 to prevent Telegram retry storms.
+Receives POST requests from Telegram, validates the secret token, and routes:
+  * slash commands            -> _handle_command
+  * plain text                -> _handle_message (one or more entries)
+  * photos / voice notes      -> _handle_media (read by Gemini)
+  * inline button taps        -> _handle_callback
+Always returns HTTP 200 to prevent Telegram retry storms.
 """
 
+import hashlib
 import json
 import traceback
-from datetime import datetime
+import urllib.error
+from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler
 
-from lib.budget import check_overspend, parse_simple_amount
-from lib.config import load_config_from_env
-from lib.db import SupabaseDB
-from lib.parser import CATEGORY_KEYWORDS, ParseError, parse
-from lib.telegram import send_telegram_message
+from lib.budget import parse_simple_amount
+from lib.config import apply_budget_overrides, load_config_from_env
+from lib.dates import local_now, local_today, short_date
+from lib.db import MONTHLY_BUDGET_KEY, SupabaseDB
+from lib.entries import (
+    CATEGORY_CHOICES,
+    Reply,
+    category_keyboard,
+    ids_in,
+    log_transactions,
+    render_entries,
+)
+from lib.media import extract_transactions
+from lib.parser import CATEGORY_KEYWORDS, ParseError, parse_entries
+from lib.ratelimit import check_rate_limit
+from lib.telegram import (
+    answer_callback,
+    download_file,
+    edit_message,
+    edit_reply_markup,
+    send_chat_action,
+    send_telegram_message,
+)
 from lib.utils import indian_format
 
 
@@ -40,26 +63,37 @@ class handler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
             data = json.loads(body)
 
-            # Step 3: Extract message — return 200 with no side effects if missing
+            callback = data.get("callback_query")
             message = data.get("message")
-            if not message or "text" not in message:
+            if not callback and not message:
                 self._send_response(200, {"ok": True})
                 return
 
-            text = message["text"]
-            chat_id = message["chat"]["id"]
-
-            # Step 4: Initialize database
+            # Step 3: Initialize database and layer saved budgets over env defaults
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+            apply_budget_overrides(config, db)
 
-            # Step 5: Route to appropriate handler
-            if text.startswith("/"):
-                reply = _handle_command(text, chat_id, db, config)
+            # Step 4: Route
+            if callback:
+                _handle_callback(callback, db, config)
             else:
-                reply = _handle_message(text, chat_id, db, config)
+                chat_id = message["chat"]["id"]
+                text = message.get("text")
+                if text is not None:
+                    if text.startswith("/"):
+                        reply = _handle_command(text, chat_id, db, config)
+                    else:
+                        reply = _handle_message(text, chat_id, db, config)
+                elif _media_of(message):
+                    reply = _handle_media(message, chat_id, db, config)
+                else:
+                    reply = None
 
-            # Step 6: Send reply via Telegram
-            send_telegram_message(chat_id, reply, config.telegram_token)
+                # Step 5: Send reply via Telegram
+                if reply is not None:
+                    if isinstance(reply, str):
+                        reply = Reply(reply)
+                    send_telegram_message(chat_id, reply.text, config.telegram_token, reply.markup)
 
         except Exception:
             # Log error for Vercel function logs, but never fail
@@ -112,7 +146,7 @@ def _handle_command(text: str, chat_id: int, db: SupabaseDB, config) -> str:
         elif command == "/budget":
             return _cmd_budget(db, config)
         elif command == "/setbudget":
-            return _cmd_setbudget(args, config)
+            return _cmd_setbudget(args, db, config)
         elif command == "/addsub":
             return _cmd_addsub(args, chat_id, db, config)
         elif command == "/removesub":
@@ -135,8 +169,12 @@ def _cmd_start() -> str:
         "I help you track expenses right from Telegram.\n\n"
         "Just send me a message like:\n"
         "• \"swiggy 450\" — logs ₹450 under food\n"
-        "• \"1.5k uber\" — logs ₹1,500 under travel\n"
-        "• \"salary 50k\" — logs ₹50,000 as income\n\n"
+        "• \"swiggy 450, uber 200\" — logs both\n"
+        "• \"dinner 800 yesterday\" — logs it on yesterday's date\n"
+        "• \"salary 50k\" — logs ₹50,000 as income\n"
+        "• 📷 a receipt / UPI screenshot, or 🎙️ a voice note\n\n"
+        "Tap the buttons under each entry to delete it, change its category, "
+        "or move it a day back.\n\n"
         "Commands:\n"
         "/help — usage instructions\n"
         "/total — this month's spending\n"
@@ -156,13 +194,21 @@ def _cmd_help() -> str:
         "• \"rs 1,250 groceries\" — ₹1,250, groceries\n"
         "• \"2.5k rent\" — ₹2,500, rent\n"
         "• \"1.5l apartment\" — ₹1,50,000, rent\n"
-        "• \"₹450 swiggy\" — ₹450, food\n"
         "• \"salary 80k\" — ₹80,000, income\n\n"
+        "Several at once (comma, ; or new line):\n"
+        "• \"swiggy 450, uber 200, chai 30\"\n\n"
+        "Past dates:\n"
+        "• \"dinner 800 yesterday\" · \"cab 300 2 days ago\"\n"
+        "• \"chai 30 last monday\" · \"rent 15k on 1/10\"\n\n"
+        "Photos & voice:\n"
+        "• Send a receipt or UPI screenshot 📷\n"
+        "• Send a voice note 🎙️ — \"four fifty swiggy and two hundred uber\"\n\n"
         "Commands:\n"
         "/total — current month total vs budget\n"
         "/undo — remove last transaction\n"
         "/delete — list recent entries / delete one by #id\n"
         "/budget — per-category budget status\n"
+        "/setbudget — set a budget, e.g. /setbudget food 8000\n"
         "/addsub — add a subscription\n"
         "/removesub — remove a subscription\n"
         "/sub — list subscriptions"
@@ -174,7 +220,8 @@ def _cmd_total(db: SupabaseDB, config) -> str:
     currency = config.currency
     budget = config.monthly_budget
 
-    current_month = datetime.now().strftime("%Y-%m")
+    now = local_now()
+    current_month = now.strftime("%Y-%m")
     month_total = db.month_total(current_month)
 
     total_str = indian_format(month_total, currency)
@@ -190,7 +237,7 @@ def _cmd_total(db: SupabaseDB, config) -> str:
         bar = "░" * 20
         pct_display = 0
 
-    month_name = datetime.now().strftime("%B %Y")
+    month_name = now.strftime("%B %Y")
 
     return (
         f"📊 {month_name}\n\n"
@@ -249,12 +296,12 @@ def _cmd_budget(db: SupabaseDB, config) -> str:
     """Handle /budget — per-category budget caps and current spend."""
     currency = config.currency
     budgets = config.budgets
-    current_month = datetime.now().strftime("%Y-%m")
+    current_month = local_now().strftime("%Y-%m")
 
     if not budgets:
         return (
             "No per-category budgets configured.\n"
-            "Set budgets via the BUDGETS environment variable."
+            "Set one with /setbudget <category> <amount>, e.g. /setbudget food 8000"
         )
 
     lines = ["💰 Category Budgets\n"]
@@ -268,52 +315,61 @@ def _cmd_budget(db: SupabaseDB, config) -> str:
     return "\n".join(lines)
 
 
-def _cmd_setbudget(args: list, config) -> str:
-    """Handle /setbudget — acknowledge that budgets are managed via env vars.
+def _cmd_setbudget(args: list, db: SupabaseDB, config) -> str:
+    """Handle /setbudget — save a category cap or the overall monthly budget.
 
-    In serverless mode, budget caps live in the BUDGETS environment variable.
-    This command can only inform the user how to update them.
+    /setbudget food 8000     -> food capped at ₹8,000
+    /setbudget total 60000   -> overall monthly budget (alias: monthly)
+    /setbudget food 0        -> remove the food cap
     """
-    if not args or len(args) < 2:
+    valid_categories = set(config.budgets.keys())
+    valid_categories.update(c for c in CATEGORY_KEYWORDS if c != "fav_p")
+    valid_categories.add("other")
+
+    if len(args) < 2:
         return (
             "Usage: /setbudget <category> <amount>\n"
-            "Example: /setbudget food 10000\n\n"
-            "Note: In serverless mode, budgets are managed via the "
-            "BUDGETS environment variable in your Vercel project settings."
+            "Examples:\n"
+            "  /setbudget food 8000\n"
+            "  /setbudget total 60000 — overall monthly budget\n"
+            "  /setbudget food 0 — remove the food cap\n\n"
+            f"Categories: {', '.join(sorted(valid_categories))}"
         )
 
     category = args[0].lower()
-    amount_str = args[1]
+    is_total = category in ("total", "monthly", "month")
 
-    # Validate category
-    valid_categories = set(config.budgets.keys())
-    valid_categories.update(CATEGORY_KEYWORDS.keys())
-    valid_categories.add("subscriptions")
-    valid_categories.add("other")
-
-    if category not in valid_categories:
+    if not is_total and category not in valid_categories:
         return (
             f"Unknown category '{category}'.\n"
-            f"Valid: {', '.join(sorted(valid_categories))}"
+            f"Valid: total, {', '.join(sorted(valid_categories))}"
         )
 
-    # Parse amount
     try:
-        amount = parse_simple_amount(amount_str)
+        amount = parse_simple_amount(args[1])
     except ValueError:
         return "Invalid amount. Use a number like 10000 or 10k"
 
-    if amount <= 0:
+    if amount < 0 or (is_total and amount == 0):
         return "Budget amount must be positive"
+    if amount > 10_000_000:
+        return "Budget amount must be at most 1,00,00,000"
+
+    try:
+        db.set_budget(MONTHLY_BUDGET_KEY if is_total else category, amount)
+    except Exception as exc:
+        print(f"set_budget failed: {exc}")
+        return (
+            "⚠️ Couldn't save the budget. If this is a new setup, run "
+            "supabase/migrations.sql in the Supabase SQL editor first."
+        )
 
     currency = config.currency
-    amount_formatted = indian_format(amount, currency)
-    return (
-        f"To set {category} budget to {amount_formatted}, update the BUDGETS "
-        f"environment variable in your Vercel project settings.\n\n"
-        f"Current BUDGETS value should include:\n"
-        f'  "{category}": {int(amount)}'
-    )
+    if is_total:
+        return f"✅ Monthly budget set to {indian_format(amount, currency)}"
+    if amount == 0:
+        return f"✅ Removed the {category} budget cap"
+    return f"✅ {category.capitalize()} budget set to {indian_format(amount, currency)}/month"
 
 
 def _cmd_addsub(args: list, chat_id: int, db: SupabaseDB, config) -> str:
@@ -417,12 +473,12 @@ def _cmd_sub(chat_id: int, db: SupabaseDB, config) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Plain Message Handler (Task 5.4)
+# Plain Message Handler
 # ---------------------------------------------------------------------------
 
 
-def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
-    """Handle plain text messages — parse as expense/income and log.
+def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> Reply | str:
+    """Handle plain text messages — parse one or more entries and log them.
 
     Args:
         text: The plain-text message from the user.
@@ -431,52 +487,113 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> str:
         config: AppConfig instance.
 
     Returns:
-        Reply text string (confirmation or error message).
+        A Reply with the confirmation and action buttons, or an error string.
     """
-    currency = config.currency
-    budget = config.monthly_budget
-
-    # Step 1: Parse the message
     try:
-        txn = parse(text)
+        txns = parse_entries(text, local_today())
     except ParseError as e:
         return f"❌ {e}\n\nExample: \"swiggy 450\" or \"1.5k uber\""
 
-    # Step 2: Store transaction (wrapped for Supabase failure handling)
+    return log_transactions(txns, chat_id, db, config)
+
+
+# ---------------------------------------------------------------------------
+# Photos & Voice Notes
+# ---------------------------------------------------------------------------
+
+
+def _media_of(message: dict) -> tuple[str, str, str] | None:
+    """Return (file_id, mime_type, kind) for a loggable photo/voice message."""
+    if message.get("photo"):
+        return message["photo"][-1]["file_id"], "image/jpeg", "photo"  # largest size
+    for key in ("voice", "audio"):
+        media = message.get(key)
+        if media:
+            return media["file_id"], media.get("mime_type") or "audio/ogg", "voice"
+    doc = message.get("document")
+    if doc:
+        mime = doc.get("mime_type") or ""
+        if mime.startswith("image/") or mime == "application/pdf":
+            return doc["file_id"], mime, "photo"
+    return None
+
+
+def _handle_media(message: dict, chat_id: int, db: SupabaseDB, config) -> Reply | str:
+    """Read a receipt/UPI screenshot or voice note with Gemini and log what it finds."""
+    if not config.gemini_api_key:
+        return "📷 Photo and voice logging need GEMINI_API_KEY to be set."
+
+    client_id = hashlib.sha256(f"tg:{chat_id}".encode()).hexdigest()[:16]
+    decision = check_rate_limit(db.client, "media", client_id)
+    if not decision.allowed:
+        return f"⏳ {decision.message}"
+
+    file_id, mime_type, kind = _media_of(message)
+    send_chat_action(chat_id, "typing", config.telegram_token)
+
     try:
-        txn_id = db.add(txn, chat_id)
+        data = download_file(file_id, config.telegram_token)
+        txns = extract_transactions(
+            config.gemini_api_key, data, mime_type, kind,
+            message.get("caption") or "", local_today(),
+        )
+    except urllib.error.HTTPError as exc:
+        print(f"Gemini media error {exc.code}: {exc.read().decode('utf-8', 'ignore')[:500]}")
+        return "⚠️ Couldn't reach Gemini right now. Please try again, or type the expense."
     except Exception:
-        print(f"DB error storing transaction: {traceback.format_exc()}")
-        return "⚠️ Service temporarily unavailable, please try again."
+        print(f"Media logging error: {traceback.format_exc()}")
+        return "⚠️ Couldn't read that file. Please try again, or type the expense."
 
-    # Step 3: Get month total for confirmation
-    try:
-        current_month = datetime.now().strftime("%Y-%m")
-        month_total = db.month_total(current_month)
-    except Exception:
-        print(f"DB error fetching month total: {traceback.format_exc()}")
-        # Transaction was stored successfully, just can't get totals
-        amount_str = indian_format(txn.amount, currency)
-        return f"✅ {amount_str} • {txn.category} (#{txn_id})\n(Could not fetch monthly total)"
+    if not txns:
+        what = "photo" if kind == "photo" else "voice note"
+        return f"🤔 I couldn't find an amount in that {what}. Try typing it, e.g. \"swiggy 450\"."
 
-    # Step 4: Build confirmation reply
-    amount_str = indian_format(txn.amount, currency)
-    total_str = indian_format(month_total, currency)
-    budget_str = indian_format(budget, currency)
+    header = "📷 From your photo:" if kind == "photo" else "🎙️ From your voice note:"
+    return log_transactions(txns, chat_id, db, config, header=header)
 
-    reply = f"✅ {amount_str} • {txn.category} (#{txn_id})\nMonth: {total_str} / {budget_str}"
 
-    # Step 5: Check overspend (expenses only, skip fav_p)
-    if txn.type == "expense" and txn.category != "fav_p":
-        try:
-            warning = check_overspend(db, config, txn.category, current_month)
-            if warning:
-                reply += f"\n{warning}"
-        except Exception:
-            pass  # Silently skip overspend check on failure
+# ---------------------------------------------------------------------------
+# Inline Button Taps
+# ---------------------------------------------------------------------------
 
-    # For fav_p, show a different reply (not counted in budget)
-    if txn.category == "fav_p":
-        reply = f"✅ {amount_str} • Personal Favorites (#{txn_id})\n(Not counted in monthly budget)"
 
-    return reply
+def _handle_callback(callback: dict, db: SupabaseDB, config) -> None:
+    """Apply a button tap (see lib/entries.py for the callback_data format)."""
+    token = config.telegram_token
+    message = callback.get("message") or {}
+    chat_id = (message.get("chat") or {}).get("id")
+    message_id = message.get("message_id")
+    parts = (callback.get("data") or "").split(":")
+
+    if not chat_id or not message_id or len(parts) < 2 or not parts[1].isdigit():
+        answer_callback(callback["id"], token, "This button has expired.")
+        return
+
+    action, txn_id = parts[0], int(parts[1])
+
+    if action == "c":
+        edit_reply_markup(chat_id, message_id, category_keyboard(txn_id), token)
+        answer_callback(callback["id"], token)
+        return
+
+    toast = None
+    if action == "d":
+        deleted = db.delete_transaction(txn_id, chat_id)
+        toast = "Deleted" if deleted else "Already deleted"
+    elif action == "y":
+        row = next(iter(db.get_transactions([txn_id], chat_id)), None)
+        if row:
+            new_date = date.fromisoformat(row["date"]) - timedelta(days=1)
+            db.update_transaction(txn_id, chat_id, {"date": new_date.isoformat()})
+            toast = f"Date → {short_date(new_date)}"
+    elif action == "s" and len(parts) == 3 and parts[2] in CATEGORY_CHOICES:
+        db.update_transaction(txn_id, chat_id, {"category": parts[2], "type": "expense"})
+        toast = f"Category → {parts[2]}"
+    elif action != "b":
+        answer_callback(callback["id"], token, "Unknown action.")
+        return
+
+    ids = ids_in(message.get("text", "")) or [txn_id]
+    reply = render_entries(ids, db.get_transactions(ids, chat_id), db, config)
+    edit_message(chat_id, message_id, reply.text, token, reply.markup)
+    answer_callback(callback["id"], token, toast)

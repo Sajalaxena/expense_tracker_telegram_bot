@@ -1,7 +1,7 @@
 """Unit tests for Indian number formatting utility."""
 
 import pytest
-from src.utils import indian_format
+from lib.utils import indian_format
 
 
 class TestIndianFormat:

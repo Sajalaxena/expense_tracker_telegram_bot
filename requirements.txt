@@ -1,2 +1,3 @@
-python-telegram-bot~=21.0
 supabase~=2.0
+# zoneinfo data for Asia/Kolkata — the serverless image may lack system tz files
+tzdata

@@ -1,7 +1,12 @@
 """Database module for storing transactions in Supabase PostgreSQL."""
 
-from datetime import datetime
+from datetime import date
 from typing import Optional, Protocol
+
+from lib.dates import local_today
+
+# Row in the `budgets` table that holds the overall monthly budget.
+MONTHLY_BUDGET_KEY = "_monthly"
 
 
 class TransactionLike(Protocol):
@@ -11,6 +16,7 @@ class TransactionLike(Protocol):
     category: str
     note: str
     type: str
+    date: Optional[date]
 
 
 class SupabaseDB:
@@ -33,17 +39,17 @@ class SupabaseDB:
         Insert a transaction into the txns table.
 
         Args:
-            txn: A transaction object with amount, category, note, and type fields.
+            txn: A transaction object with amount, category, note, type and
+                date fields (date None or missing = today, local time).
             chat_id: The Telegram chat ID associated with the transaction.
 
         Returns:
             The row id of the inserted transaction.
         """
-        now = datetime.now()
-        current_date = now.strftime("%Y-%m-%d")
+        txn_date = getattr(txn, "date", None) or local_today()
 
         row = {
-            "date": current_date,
+            "date": txn_date.isoformat(),
             "category": txn.category,
             "amount": float(txn.amount),
             "note": txn.note,
@@ -108,6 +114,60 @@ class SupabaseDB:
         result = query.execute()
 
         return result.data[0] if result.data else None
+
+    def get_transactions(self, ids: list[int], chat_id: int) -> list[dict]:
+        """
+        Fetch the given transactions that belong to chat_id (missing ids are skipped).
+        """
+        if not ids:
+            return []
+        result = (
+            self.client.table("txns")
+            .select("*")
+            .in_("id", ids)
+            .eq("chat_id", chat_id)
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def update_transaction(self, txn_id: int, chat_id: int, fields: dict) -> Optional[dict]:
+        """
+        Update fields (e.g. category, date) of a transaction owned by chat_id.
+
+        Returns:
+            The updated row, or None if no matching transaction exists.
+        """
+        result = (
+            self.client.table("txns")
+            .update(fields)
+            .eq("id", txn_id)
+            .eq("chat_id", chat_id)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def rows_since(self, chat_id: int, start: date) -> list[dict]:
+        """
+        Return a chat's transactions dated on or after `start`.
+        """
+        result = (
+            self.client.table("txns")
+            .select("*")
+            .eq("chat_id", chat_id)
+            .gte("date", start.isoformat())
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def chat_ids(self) -> set[int]:
+        """
+        Return every chat_id that has logged a transaction or subscription.
+        """
+        ids = set()
+        for table in ("txns", "subscriptions"):
+            result = self.client.table(table).select("chat_id").execute()
+            ids.update(row["chat_id"] for row in (result.data or []) if row.get("chat_id"))
+        return ids
 
     def recent(self, chat_id: int, limit: int = 10) -> list[dict]:
         """
@@ -296,3 +356,53 @@ class SupabaseDB:
         result = query.execute()
 
         return len(result.data) > 0
+
+    def subscriptions_for_billing(self) -> list[dict]:
+        """
+        Get all active subscriptions with the fields needed to auto-log renewals.
+
+        Requires the `last_billed` column (see supabase/migrations.sql).
+
+        Returns:
+            List of dicts with id, name, amount, cycle, chat_id, created_at,
+            last_billed.
+        """
+        result = (
+            self.client.table("subscriptions")
+            .select("id, name, amount, cycle, chat_id, created_at, last_billed")
+            .eq("active", True)
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def mark_subscription_billed(self, sub_id: int, billed_on: date) -> None:
+        """
+        Record the date a subscription renewal was last auto-logged.
+        """
+        (
+            self.client.table("subscriptions")
+            .update({"last_billed": billed_on.isoformat()})
+            .eq("id", sub_id)
+            .execute()
+        )
+
+    def get_budget_overrides(self) -> dict[str, float]:
+        """
+        Read budgets set from Telegram or the dashboard (the `budgets` table).
+
+        Returns:
+            {category: amount}. MONTHLY_BUDGET_KEY holds the overall monthly
+            budget; an amount of 0 means "no cap" for that category.
+        """
+        result = self.client.table("budgets").select("category, amount").execute()
+        return {row["category"]: float(row["amount"]) for row in (result.data or [])}
+
+    def set_budget(self, category: str, amount: float) -> None:
+        """
+        Create or replace a budget cap. Use amount 0 to remove a category's cap.
+        """
+        (
+            self.client.table("budgets")
+            .upsert({"category": category, "amount": float(amount)}, on_conflict="category")
+            .execute()
+        )

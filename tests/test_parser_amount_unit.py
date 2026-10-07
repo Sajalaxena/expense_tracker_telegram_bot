@@ -1,7 +1,7 @@
 """Unit tests for parser amount extraction logic."""
 
 import pytest
-from src.parser import parse, ParseError, Transaction
+from lib.parser import parse, ParseError, Transaction
 
 
 class TestPlainNumbers:

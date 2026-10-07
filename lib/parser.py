@@ -1,7 +1,10 @@
 """Parser module for extracting transaction data from plain-English messages."""
 
+import datetime as _dt
 import re
 from dataclasses import dataclass
+
+from lib.dates import extract_date
 
 
 @dataclass
@@ -12,6 +15,7 @@ class Transaction:
     category: str
     note: str
     type: str  # "expense" | "income"
+    date: _dt.date | None = None  # None = today
 
 
 class ParseError(Exception):
@@ -350,3 +354,47 @@ def format_transaction(txn: Transaction) -> str:
                 keyword = category_kws[0]
                 return f"{amount_str} {keyword}"
         return f"{amount_str} {note}"
+
+
+# Separators between entries in one message: newline, ";", or a comma followed
+# by whitespace (so "1,250" stays one number).
+_ENTRY_SEPARATOR = re.compile(r"\n|;|,(?=\s)")
+
+
+def parse_entries(message: str, today: _dt.date) -> list[Transaction]:
+    """
+    Parse a message that may hold several entries, each with an optional date.
+
+    "swiggy 450, uber 200" -> two transactions. Splitting only applies when
+    every piece parses; otherwise the whole message is parsed as one entry
+    (so "bread, butter 50" stays a single ₹50 entry).
+
+    A date phrase ("yesterday", "2 days ago", "on 5/10", ...) applies to its
+    own piece and carries forward to later pieces without one, so
+    "yesterday swiggy 450, uber 200" dates both entries yesterday.
+
+    Raises:
+        ParseError: If the message (taken whole) has no valid amount.
+    """
+    pieces = [p.strip() for p in _ENTRY_SEPARATOR.split(message or "")]
+    pieces = [p for p in pieces if p]
+
+    if len(pieces) > 1:
+        try:
+            return _parse_dated(pieces, today)
+        except ParseError:
+            pass
+    return _parse_dated([message], today)
+
+
+def _parse_dated(pieces: list[str], today: _dt.date) -> list[Transaction]:
+    results = []
+    carried = None
+    for piece in pieces:
+        when, rest = extract_date(piece, today)
+        if when is not None:
+            carried = when
+        txn = parse(rest)
+        txn.date = carried
+        results.append(txn)
+    return results

@@ -14,11 +14,14 @@ def call_gemini(
     contents: list,
     system_instruction: str | None = None,
     json_mode: bool = False,
+    response_schema: dict | None = None,
     max_output_tokens: int = 800,
     temperature: float = 0.6,
     timeout: int = 30,
 ) -> str:
     """Send a generateContent request and return the response text.
+
+    `response_schema` (implies json_mode) constrains the JSON shape.
 
     Raises urllib.error.HTTPError on API errors and ValueError on empty output.
     """
@@ -26,8 +29,10 @@ def call_gemini(
         "temperature": temperature,
         "maxOutputTokens": max_output_tokens,
     }
-    if json_mode:
+    if json_mode or response_schema:
         generation_config["responseMimeType"] = "application/json"
+    if response_schema:
+        generation_config["responseSchema"] = response_schema
 
     body = {"contents": contents, "generationConfig": generation_config}
     if system_instruction:

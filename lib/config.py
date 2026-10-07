@@ -20,6 +20,7 @@ class AppConfig:
     auth_username: str = ""
     auth_password: str = ""
     session_secret: str = ""
+    cron_secret: str = ""
 
 
 def load_config_from_env() -> AppConfig:
@@ -70,4 +71,33 @@ def load_config_from_env() -> AppConfig:
         auth_username=os.environ.get("AUTH_USERNAME", ""),
         auth_password=os.environ.get("AUTH_PASSWORD", ""),
         session_secret=os.environ.get("SESSION_SECRET", ""),
+        cron_secret=os.environ.get("CRON_SECRET", ""),
     )
+
+
+def apply_budget_overrides(config: AppConfig, db) -> AppConfig:
+    """Layer budgets saved in Supabase (via /setbudget or the dashboard) over
+    the env-var defaults. An override of 0 removes that category's cap.
+
+    Fails soft: if the `budgets` table doesn't exist yet (migration not run),
+    the env-var budgets are used unchanged.
+    """
+    from lib.db import MONTHLY_BUDGET_KEY
+
+    try:
+        overrides = db.get_budget_overrides()
+    except Exception as exc:
+        print(f"Budget overrides unavailable, using env budgets: {exc}")
+        return config
+
+    budgets = dict(config.budgets)
+    for category, amount in overrides.items():
+        if category == MONTHLY_BUDGET_KEY:
+            if amount > 0:
+                config.monthly_budget = int(amount)
+        elif amount > 0:
+            budgets[category] = amount
+        else:
+            budgets.pop(category, None)
+    config.budgets = budgets
+    return config

@@ -9,8 +9,9 @@ import traceback
 from http.server import BaseHTTPRequestHandler
 
 from lib.auth import is_authenticated
-from lib.config import load_config_from_env
+from lib.config import apply_budget_overrides, load_config_from_env
 from lib.db import SupabaseDB
+from lib.parser import CATEGORY_KEYWORDS
 
 
 class handler(BaseHTTPRequestHandler):
@@ -26,6 +27,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+            apply_budget_overrides(config, db)
 
             # Query all transactions ordered by created_at DESC
             rows = db.all_rows()
@@ -52,6 +54,10 @@ class handler(BaseHTTPRequestHandler):
                     "currency": config.currency,
                     "monthlyBudget": config.monthly_budget,
                     "budgets": config.budgets,
+                    # Categories a budget can be set for (dashboard budget editor)
+                    "categories": sorted(
+                        {c for c in CATEGORY_KEYWORDS if c != "fav_p"} | {"other"} | set(config.budgets)
+                    ),
                 },
                 "subscriptions": subscriptions,
             }

@@ -7,13 +7,37 @@
     },
     "api/chat.py": {
       "maxDuration": 30
+    },
+    "api/webhook.py": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/api/page?page=index" },
-    { "source": "/dashboard.html", "destination": "/api/page?page=dashboard" },
-    { "source": "/daily-details.html", "destination": "/api/page?page=daily-details" },
-    { "source": "/insights.html", "destination": "/api/page?page=insights" },
-    { "source": "/fav-p.html", "destination": "/api/page?page=fav-p" }
+    {
+      "source": "/",
+      "destination": "/api/page?page=index"
+    },
+    {
+      "source": "/dashboard.html",
+      "destination": "/api/page?page=dashboard"
+    },
+    {
+      "source": "/daily-details.html",
+      "destination": "/api/page?page=daily-details"
+    },
+    {
+      "source": "/insights.html",
+      "destination": "/api/page?page=insights"
+    },
+    {
+      "source": "/fav-p.html",
+      "destination": "/api/page?page=fav-p"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "30 16 * * *"
+    }
   ]
 }

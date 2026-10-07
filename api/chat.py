@@ -12,7 +12,8 @@ from datetime import date
 from http.server import BaseHTTPRequestHandler
 
 from lib.auth import is_authenticated
-from lib.config import load_config_from_env
+from lib.config import apply_budget_overrides, load_config_from_env
+from lib.dates import local_today
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
 from lib.ratelimit import check_rate_limit, get_client_id
@@ -143,6 +144,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             db = SupabaseDB(config.supabase_url, config.supabase_key)
+            apply_budget_overrides(config, db)
 
             decision = check_rate_limit(db.client, "chat", get_client_id(self.headers))
             if not decision.allowed:
@@ -154,7 +156,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             context = _build_context(
-                db.all_rows(), db.get_all_active_subscriptions(), config, date.today()
+                db.all_rows(), db.get_all_active_subscriptions(), config, local_today()
             )
 
             reply = call_gemini(

@@ -534,6 +534,11 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
       }
     }
 
+    // Escape AI-generated text before putting it into innerHTML.
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     var SECTIONS = [
       { key: 'expense_tips', title: '💸 Expense Tips', color: 'var(--pink)' },
       { key: 'subscription_tips', title: '📺 Subscription Tips', color: 'var(--cyan)' },
@@ -549,7 +554,7 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
 
     function renderError(message) {
       var area = document.getElementById('insightsArea');
-      area.innerHTML = '<div class="state-box error">⚠️ ' + message + '<br><button type="button" class="retry-btn" id="retryBtn">Try Again</button></div>';
+      area.innerHTML = '<div class="state-box error">⚠️ ' + escHtml(message) + '<br><button type="button" class="retry-btn" id="retryBtn">Try Again</button></div>';
       document.getElementById('retryBtn').addEventListener('click', function() { fetchInsights(currentMonth); });
     }
 
@@ -558,7 +563,7 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
       var html = '';
 
       if (json.summary) {
-        html += '<div class="summary-banner"><span class="icon">🧭</span><span class="text">' + json.summary + '</span></div>';
+        html += '<div class="summary-banner"><span class="icon">🧭</span><span class="text">' + escHtml(json.summary) + '</span></div>';
       }
 
       html += '<div class="tips-grid">';
@@ -569,7 +574,7 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
         html += '<div class="tip-card" style="--card-accent:' + section.color + '">';
         html += '<div class="tip-title">' + section.title + '</div><ul>';
         for (var j = 0; j < items.length; j++) {
-          html += '<li>' + items[j] + '</li>';
+          html += '<li>' + escHtml(items[j]) + '</li>';
         }
         html += '</ul></div>';
       }

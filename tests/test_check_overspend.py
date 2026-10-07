@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from src.budget import check_overspend
+from lib.budget import check_overspend
 
 
 class TestCheckOverspend:

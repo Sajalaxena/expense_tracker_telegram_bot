@@ -277,6 +277,11 @@ header h1 {
 
   var SAMPLE_CONFIG = { currency: '₹', monthlyBudget: 50000 };
 
+  // Escape user-supplied text (notes, search terms) before putting it into innerHTML.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   // POSTs to /api/delete; calls onDone() only once the server confirms.
   function deleteItem(kind, id, btn, onDone) {
     btn.disabled = true;
@@ -503,8 +508,8 @@ header h1 {
       var summaryEl = document.getElementById('filterSummary');
       if (filtersActive) {
         var descParts = [];
-        if (category !== 'all') descParts.push('Category: <strong>' + capitalize(category) + '</strong>');
-        if (searchTerm) descParts.push('Search: <strong>"' + searchTerm + '"</strong>');
+        if (category !== 'all') descParts.push('Category: <strong>' + esc(capitalize(category)) + '</strong>');
+        if (searchTerm) descParts.push('Search: <strong>"' + esc(searchTerm) + '"</strong>');
         if (useDateRange) {
           descParts.push('Range: <strong>' + (fromDate || '…') + ' → ' + (toDate || '…') + '</strong>');
         } else {
@@ -571,7 +576,7 @@ header h1 {
         html += '<div class="day-items">';
         for (var it = 0; it < items.length; it++) {
           html += '<div class="day-item">';
-          html += '<div><span class="cat">' + items[it].category + '</span><span class="note">' + (items[it].note || '') + '</span></div>';
+          html += '<div><span class="cat">' + esc(items[it].category) + '</span><span class="note">' + esc(items[it].note) + '</span></div>';
           html += '<div class="right"><span class="amt">' + indianFormat(items[it].amount) + '</span>';
           html += '<button class="del-btn" data-txn-id="' + items[it].id + '" title="Delete entry">🗑</button></div>';
           html += '</div>';

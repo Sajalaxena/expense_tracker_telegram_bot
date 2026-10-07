@@ -25,6 +25,7 @@ RULES = {
     "chat": [(10, 60), (60, 3600)],
     "insights": [(5, 60), (20, 3600)],
     "login": [(5, 300), (15, 3600)],
+    "media": [(10, 60), (60, 3600)],
 }
 DAILY_GLOBAL_CAP = 300
 CLEANUP_PROBABILITY = 0.02

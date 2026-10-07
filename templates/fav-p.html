@@ -297,6 +297,11 @@ body {
       document.getElementById('empty-state').style.display = 'block';
     });
 
+  // Escape user-supplied text (notes, search terms) before putting it into innerHTML.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   // POSTs to /api/delete; calls onDone() only once the server confirms.
   function deleteItem(kind, id, btn, onDone) {
     btn.disabled = true;
@@ -445,8 +450,8 @@ body {
 
     tbody.innerHTML = items.map(function(r) {
       return '<tr>' +
-        '<td class="date-col">' + (r.date || '') + '</td>' +
-        '<td class="note-col">' + (r.note || '') + '</td>' +
+        '<td class="date-col">' + esc(r.date) + '</td>' +
+        '<td class="note-col">' + esc(r.note) + '</td>' +
         '<td class="amount">' + indianFormat(parseFloat(r.amount), currency) + '</td>' +
         '<td class="del-col"><button class="del-btn" data-txn-id="' + r.id + '" title="Delete entry">🗑</button></td>' +
         '</tr>';
