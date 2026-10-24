@@ -2,7 +2,8 @@
 
 Receives POST requests from Telegram, validates the secret token, and routes:
   * slash commands            -> _handle_command
-  * plain text                -> _handle_message (one or more entries)
+  * plain text                -> _handle_message (loan EMIs, friends ledger,
+                                 or one or more expense entries)
   * photos / voice notes      -> _handle_media (read by Gemini)
   * inline button taps        -> _handle_callback
 Always returns HTTP 200 to prevent Telegram retry storms.
@@ -15,6 +16,7 @@ import urllib.error
 from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler
 
+from lib import friends, loans
 from lib.budget import parse_simple_amount
 from lib.config import apply_budget_overrides, load_config_from_env
 from lib.dates import local_now, local_today, short_date
@@ -153,6 +155,10 @@ def _handle_command(text: str, chat_id: int, db: SupabaseDB, config) -> str:
             return _cmd_removesub(args, chat_id, db)
         elif command == "/sub":
             return _cmd_sub(chat_id, db, config)
+        elif command == "/loans":
+            return _cmd_loans(chat_id, db, config)
+        elif command == "/friends":
+            return _cmd_friends(chat_id, db, config)
         else:
             return (
                 "Unknown command. Use /help to see available commands."
@@ -172,7 +178,9 @@ def _cmd_start() -> str:
         "• \"swiggy 450, uber 200\" — logs both\n"
         "• \"dinner 800 yesterday\" — logs it on yesterday's date\n"
         "• \"salary 50k\" — logs ₹50,000 as income\n"
-        "• 📷 a receipt / UPI screenshot, or 🎙️ a voice note\n\n"
+        "• 📷 a receipt / UPI screenshot, or 🎙️ a voice note\n"
+        "• \"home loan emi done\" — marks this month's EMI paid\n"
+        "• \"lent rahul 500\" / \"rahul paid back\" — tracks money with friends\n\n"
         "Tap the buttons under each entry to delete it, change its category, "
         "or move it a day back.\n\n"
         "Commands:\n"
@@ -180,7 +188,9 @@ def _cmd_start() -> str:
         "/total — this month's spending\n"
         "/undo — delete last entry\n"
         "/delete — delete a specific entry\n"
-        "/budget — per-category budgets"
+        "/budget — per-category budgets\n"
+        "/loans — loans and EMIs left\n"
+        "/friends — who owes whom"
     )
 
 
@@ -203,6 +213,13 @@ def _cmd_help() -> str:
         "Photos & voice:\n"
         "• Send a receipt or UPI screenshot 📷\n"
         "• Send a voice note 🎙️ — \"four fifty swiggy and two hundred uber\"\n\n"
+        "Loans (add them on the dashboard's Loans page):\n"
+        "• \"home loan emi done\" · \"home loan emi paid 26500\"\n"
+        "• \"home loan 2 emis done\" · \"car loan lumpsum 50000\"\n\n"
+        "Friends:\n"
+        "• \"lent rahul 500\" · \"rahul owes me 500 for dinner\"\n"
+        "• \"borrowed 1000 from amit\" · \"i owe amit 1000\"\n"
+        "• \"rahul paid back 200\" · \"paid back amit\" · \"settle rahul\"\n\n"
         "Commands:\n"
         "/total — current month total vs budget\n"
         "/undo — remove last transaction\n"
@@ -211,7 +228,9 @@ def _cmd_help() -> str:
         "/setbudget — set a budget, e.g. /setbudget food 8000\n"
         "/addsub — add a subscription\n"
         "/removesub — remove a subscription\n"
-        "/sub — list subscriptions"
+        "/sub — list subscriptions\n"
+        "/loans — loans, EMIs paid and left\n"
+        "/friends — money lent and borrowed"
     )
 
 
@@ -472,6 +491,37 @@ def _cmd_sub(chat_id: int, db: SupabaseDB, config) -> str:
     return "\n".join(lines)
 
 
+def _cmd_loans(chat_id: int, db: SupabaseDB, config) -> str:
+    """Handle /loans — every loan with EMIs paid/left and outstanding balance."""
+    if not config.is_owner(chat_id):
+        return "🔒 Loans are only shown in the owner's chat."
+    try:
+        all_loans = db.get_loans()
+        payments = db.get_loan_payments()
+    except Exception as exc:
+        print(f"Loans unavailable: {exc}")
+        return _MIGRATION_HINT
+    return loans.loans_overview(all_loans, payments, config.currency, local_today())
+
+
+def _cmd_friends(chat_id: int, db: SupabaseDB, config) -> str:
+    """Handle /friends — open balances with friends."""
+    if not config.is_owner(chat_id):
+        return "🔒 The friends ledger is only shown in the owner's chat."
+    try:
+        entries = db.get_friend_txns()
+    except Exception as exc:
+        print(f"Friends ledger unavailable: {exc}")
+        return _MIGRATION_HINT
+    return friends.friends_overview(entries, config.currency)
+
+
+_MIGRATION_HINT = (
+    "⚠️ Couldn't load that. If this is a new setup, run "
+    "supabase/migrations.sql in the Supabase SQL editor first."
+)
+
+
 # ---------------------------------------------------------------------------
 # Plain Message Handler
 # ---------------------------------------------------------------------------
@@ -489,12 +539,138 @@ def _handle_message(text: str, chat_id: int, db: SupabaseDB, config) -> Reply | 
     Returns:
         A Reply with the confirmation and action buttons, or an error string.
     """
+    reply = _handle_loan_or_friend(text, chat_id, db, config)
+    if reply is not None:
+        return reply
+
     try:
         txns = parse_entries(text, local_today())
     except ParseError as e:
         return f"❌ {e}\n\nExample: \"swiggy 450\" or \"1.5k uber\""
 
     return log_transactions(txns, chat_id, db, config)
+
+
+# ---------------------------------------------------------------------------
+# Loans & Friends
+# ---------------------------------------------------------------------------
+
+
+def _handle_loan_or_friend(text: str, chat_id: int, db: SupabaseDB, config) -> Reply | str | None:
+    """Record an EMI/prepayment or a friends-ledger entry.
+
+    Returns None when the message is neither, so it's logged as an expense.
+    Missing tables (migration not run yet) also fall through to expenses.
+    """
+    if not config.is_owner(chat_id):
+        return None
+    today = local_today()
+
+    if loans.mentions_loan(text):
+        try:
+            all_loans = db.get_loans()
+        except Exception as exc:
+            print(f"Loans unavailable: {exc}")
+            all_loans = []
+        intent = loans.parse_loan_message(text, all_loans, today)
+        if intent is not None:
+            return _record_loan_payment(intent, all_loans, chat_id, db, config)
+
+    intent = friends.parse_friend_message(text, today)
+    if intent is None:
+        return None
+    try:
+        entries = db.get_friend_txns()
+    except Exception as exc:
+        print(f"Friends ledger unavailable: {exc}")
+        return None
+    return _record_friend_entry(intent, entries, chat_id, db, config)
+
+
+def _record_loan_payment(intent, all_loans: list, chat_id: int, db: SupabaseDB, config) -> Reply | str:
+    if intent.kind == "unknown_loan":
+        if not all_loans:
+            return "🏦 No loans yet. Add them on the Loans page of the dashboard first."
+        names = ", ".join(loan["name"] for loan in all_loans)
+        return (f"🤔 Which loan? Include its name, e.g. \"{all_loans[0]['name']} emi done\".\n"
+                f"Your loans: {names}")
+
+    loan = intent.loan
+    if intent.kind == "missing_amount":
+        return f"How much? e.g. \"{loan['name']} lumpsum 50000\""
+
+    today = local_today()
+    earlier = [p for p in db.get_loan_payments() if p["loan_id"] == loan["id"]]
+    status = loans.loan_status(loan, earlier, today)
+    if status["closed"]:
+        return f"🎉 {loan['name']} is already closed — nothing left to pay."
+
+    recorded = []
+    for _ in range(intent.count):
+        payment, loan = loans.record_payment(
+            db, loan, intent.kind, intent.amount, intent.paid_on, chat_id=chat_id
+        )
+        recorded.append(payment)
+        if loans.loan_status(loan, [], today)["closed"]:
+            break
+
+    text = loans.payment_reply(loan, recorded, earlier + recorded, config.currency, today)
+    if intent.kind == "emi" and status["paid_this_month"]:
+        text += "\n\n⚠️ An EMI was already logged this month. Tap Undo if this was a repeat."
+    return Reply(text, loans.undo_markup([p["id"] for p in recorded]))
+
+
+def _record_friend_entry(intent, entries: list, chat_id: int, db: SupabaseDB, config) -> Reply | str | None:
+    current = friends.balances(entries)
+    if intent.needs_known and intent.person not in current:
+        return None
+
+    balance = current.get(intent.person, 0.0)
+    kind, amount, note = intent.kind, intent.amount, intent.note
+    if amount is None:
+        # "rahul paid back" / "settle rahul" clear whatever is owed.
+        settle = friends.settlement(balance)
+        if settle is None or (kind == "received" and balance < 0) or (kind == "repaid" and balance > 0):
+            return f"🤔 Nothing to settle. {friends.balance_line(intent.person, balance, config.currency)}"
+        if kind == "settle":
+            note = note or "settled up"
+        kind, amount = settle
+
+    entry = db.add_friend_txn({
+        "person": intent.person,
+        "kind": kind,
+        "amount": round(amount, 2),
+        "note": note,
+        "date": intent.date.isoformat(),
+        "chat_id": chat_id,
+    })
+    new_balance = round(balance + friends.SIGN[kind] * amount, 2)
+    text = friends.entry_reply(entry, new_balance, config.currency, local_today())
+    return Reply(text, friends.undo_markup(entry["id"]))
+
+
+def _handle_undo(callback: dict, action: str, ids_text: str, message: dict, db: SupabaseDB, config) -> None:
+    """Undo button under a loan payment (lu:<ids>) or friends entry (fu:<id>)."""
+    token = config.telegram_token
+    chat_id = message["chat"]["id"]
+    if not config.is_owner(chat_id):
+        answer_callback(callback["id"], token, "Not allowed.")
+        return
+
+    ids = [int(i) for i in ids_text.split(",") if i.isdigit()]
+    undone = 0
+    if action == "lu":
+        for payment_id in reversed(ids):
+            payment = db.get_loan_payment(payment_id)
+            if payment:
+                loans.reverse_payment(db, payment)
+                undone += 1
+    else:
+        undone = sum(1 for entry_id in ids if db.delete_friend_txn(entry_id))
+
+    text = (message.get("text") or "").split("\n\n↩️")[0]
+    edit_message(chat_id, message["message_id"], text + "\n\n↩️ Undone", token)
+    answer_callback(callback["id"], token, "Undone" if undone else "Already undone")
 
 
 # ---------------------------------------------------------------------------
@@ -564,6 +740,10 @@ def _handle_callback(callback: dict, db: SupabaseDB, config) -> None:
     chat_id = (message.get("chat") or {}).get("id")
     message_id = message.get("message_id")
     parts = (callback.get("data") or "").split(":")
+
+    if chat_id and message_id and len(parts) == 2 and parts[0] in ("lu", "fu"):
+        _handle_undo(callback, parts[0], parts[1], message, db, config)
+        return
 
     if not chat_id or not message_id or len(parts) < 2 or not parts[1].isdigit():
         answer_callback(callback["id"], token, "This button has expired.")

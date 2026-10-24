@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0e14">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/pwa.js" defer></script>
+<title>Tracksy — Friends</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0c0e14;
+  --bg-card: rgba(22, 27, 45, 0.8);
+  --bg-card-solid: #161b2d;
+  --bg-hover: rgba(99, 102, 241, 0.08);
+  --border: rgba(99, 102, 241, 0.15);
+  --border-hover: rgba(99, 102, 241, 0.4);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-blue: #6366f1;
+  --accent-purple: #8b5cf6;
+  --accent-cyan: #06b6d4;
+  --gradient-primary: linear-gradient(135deg, #10b981 0%, #06b6d4 50%, #6366f1 100%);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+}
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes grow { from { width: 0; } }
+
+body {
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(16, 185, 129, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(99, 102, 241, 0.06) 0%, transparent 50%);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Helvetica, Arial, sans-serif;
+  line-height: 1.6; padding: 40px; min-height: 100vh;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 2rem; font-weight: 800; letter-spacing: -1px;
+  background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+header h1 small { font-size: 1rem; font-weight: 600; letter-spacing: 0; }
+.nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill {
+  font-size: 0.8rem; text-decoration: none; padding: 8px 16px; border: 1px solid var(--border);
+  border-radius: 20px; transition: all 0.2s; background: transparent; cursor: pointer; font-family: inherit;
+  color: var(--text-secondary);
+}
+.pill:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.pill.primary { background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan)); border: none; color: #fff; font-weight: 600; }
+.pill:disabled { opacity: 0.5; cursor: wait; }
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.card-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 16px; }
+
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stat { padding: 14px 16px; border-radius: var(--radius-sm); background: var(--bg-hover); }
+.stat label { display: block; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 6px; }
+.stat .value { font-family: var(--mono); font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
+.stat .sub { font-size: 0.72rem; color: var(--text-muted); }
+
+.tg-tip {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; margin-bottom: 24px;
+  border-radius: var(--radius-sm); border: 1px dashed rgba(6,182,212,0.35); background: rgba(6,182,212,0.05);
+  font-size: 0.82rem; color: var(--text-secondary);
+}
+.tg-tip b { color: var(--text-primary); }
+.cmd {
+  display: inline-block; font-family: var(--mono); font-size: 0.75rem; color: var(--accent-cyan);
+  background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25); border-radius: 6px;
+  padding: 1px 7px; margin: 2px; cursor: pointer; white-space: nowrap;
+}
+.cmd:hover { background: rgba(6,182,212,0.2); }
+
+.people { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.people .card { margin-bottom: 0; display: flex; flex-direction: column; gap: 14px; }
+.section-heading { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin: 32px 0 16px; }
+
+.person-head { display: flex; align-items: center; gap: 14px; }
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.1rem; flex-shrink: 0; color: #fff;
+}
+.avatar.owes-you { background: linear-gradient(135deg, #10b981, #06b6d4); }
+.avatar.you-owe { background: linear-gradient(135deg, #ef4444, #f59e0b); }
+.avatar.settled { background: rgba(148,163,184,0.25); }
+.person-name { font-weight: 700; font-size: 1.05rem; text-transform: capitalize; }
+.person-status { font-size: 0.78rem; color: var(--text-secondary); }
+.person-head .icon-btns { margin-left: auto; }
+.icon-btns { display: flex; gap: 4px; }
+.icon-btn {
+  background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted);
+  cursor: pointer; font-size: 0.85rem; padding: 5px 8px; transition: all 0.2s;
+}
+.icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border); }
+.icon-btn.danger:hover { color: var(--accent-red); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.icon-btn:disabled { opacity: 0.4; cursor: wait; }
+
+.balance { font-family: var(--mono); font-size: 1.8rem; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
+.balance.green { color: var(--accent-green); }
+.balance.red { color: var(--accent-red); }
+.balance.muted { color: var(--text-muted); }
+
+.bar-block { display: flex; flex-direction: column; gap: 6px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text-secondary); }
+.bar-label b { color: var(--text-primary); font-family: var(--mono); }
+.bar { height: 8px; border-radius: 6px; background: rgba(148,163,184,0.12); overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #10b981, #06b6d4); animation: grow 1s cubic-bezier(0.16, 1, 0.3, 1); }
+.bar-fill.red { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+details.history summary { cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); list-style: none; user-select: none; }
+details.history summary::-webkit-details-marker { display: none; }
+details.history summary::before { content: '▸ '; }
+details.history[open] summary::before { content: '▾ '; }
+.entry {
+  display: grid; grid-template-columns: 56px 1fr auto auto; align-items: center; gap: 10px;
+  padding: 8px 2px; border-bottom: 1px solid rgba(99,102,241,0.08); font-size: 0.8rem;
+}
+.entry:last-child { border-bottom: none; }
+.entry .date { color: var(--text-muted); font-family: var(--mono); font-size: 0.72rem; }
+.entry .what { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
+.entry .what em { color: var(--text-muted); font-style: normal; }
+.entry .amt { font-family: var(--mono); font-weight: 600; }
+.amt.plus { color: var(--accent-green); }
+.amt.minus { color: var(--accent-red); }
+
+.empty { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
+.empty .emoji { font-size: 2.5rem; }
+.empty h2 { font-size: 1.1rem; color: var(--text-primary); margin: 8px 0 4px; }
+.empty p { font-size: 0.85rem; margin-bottom: 18px; }
+.error-box { color: var(--accent-red); font-size: 0.85rem; }
+
+/* ===== Modal ===== */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  background: var(--bg-card-solid); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md); width: 100%; max-width: 460px; max-height: 92vh; display: flex; flex-direction: column;
+}
+.modal h2 { font-size: 1rem; padding: 20px 20px 8px; }
+.modal-body { overflow-y: auto; padding: 4px 20px 8px; display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 0.75rem; color: var(--text-secondary); }
+.field label .req { color: var(--accent-red); }
+.field input {
+  background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);
+  padding: 9px 11px; font-size: 0.85rem; font-family: inherit; width: 100%;
+}
+.field input:focus { outline: none; border-color: var(--accent-blue); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kind-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kind-picker label {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; font-size: 0.82rem; color: var(--text-primary); transition: all 0.15s;
+}
+.kind-picker label small { font-size: 0.68rem; color: var(--text-muted); }
+.kind-picker input { position: absolute; opacity: 0; pointer-events: none; }
+.kind-picker label:has(input:checked) { border-color: var(--accent-green); background: rgba(16,185,129,0.1); }
+.kind-picker label:has(input:focus-visible) { outline: 2px solid var(--accent-blue); }
+.modal-error { color: var(--accent-red); font-size: 0.8rem; padding: 6px 20px 0; min-height: 1em; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px 20px; }
+.modal-actions button {
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem; padding: 8px 16px; font-family: inherit;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+}
+.modal-actions button.primary { background: var(--accent-green); border-color: var(--accent-green); color: #fff; }
+.modal-actions button:disabled { opacity: 0.5; cursor: wait; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: var(--bg-card-solid); border: 1px solid var(--border); color: var(--text-primary);
+  padding: 10px 18px; border-radius: 20px; font-size: 0.82rem; box-shadow: var(--shadow-md);
+  transition: all 0.25s ease; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 860px) { .people { grid-template-columns: 1fr; } }
+/* Let grid columns shrink below their content (long command chips) instead of overflowing. */
+.people > *, .summary-grid > *, .facts > * { min-width: 0; }
+.cmd { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+@media (max-width: 600px) {
+  body { padding: 16px; overflow-x: hidden; }
+  .stat .value { font-size: 1.1rem; }
+  .cmd { white-space: normal; }
+  header h1 { font-size: 1.5rem; }
+  .card { padding: 20px; }
+  .summary-grid { grid-template-columns: 1fr; }
+  .row2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>▌tracksy <small>· friends</small></h1>
+    <nav class="nav">
+      <a class="pill" href="/dashboard.html">← Dashboard</a>
+      <a class="pill" href="/loans.html">🏦 Loans</a>
+      <button type="button" class="pill primary" id="addEntryBtn">＋ Add entry</button>
+    </nav>
+  </header>
+
+  <div id="summary"></div>
+
+  <div class="tg-tip">
+    <span>💬</span>
+    <div>
+      <b>Log from Telegram too.</b>
+      <span class="cmd">lent rahul 500</span>
+      <span class="cmd">rahul owes me 500 for dinner</span>
+      <span class="cmd">borrowed 1000 from amit</span>
+      <span class="cmd">rahul paid back 200</span>
+      <span class="cmd">paid back amit</span>
+      <span class="cmd">settle rahul</span>
+      <span class="cmd">/friends</span>
+      — tap to copy. Each reply has an Undo button.
+    </div>
+  </div>
+
+  <div id="people"><div class="card empty">Loading…</div></div>
+</div>
+
+<div class="modal-backdrop" id="entryModal" hidden>
+  <form class="modal" id="entryForm" novalidate>
+    <h2 id="entryModalTitle">Add entry</h2>
+    <div class="modal-body">
+      <div class="field">
+        <label for="e-person">Friend's name <span class="req">*</span></label>
+        <input id="e-person" list="peopleList" maxlength="40" placeholder="Rahul" autocomplete="off">
+        <datalist id="peopleList"></datalist>
+      </div>
+      <div class="field">
+        <label>What happened? <span class="req">*</span></label>
+        <div class="kind-picker">
+          <label><input type="radio" name="kind" value="lent" checked>🤝 I lent money<small>they owe you more</small></label>
+          <label><input type="radio" name="kind" value="borrowed">🙏 I borrowed money<small>you owe them more</small></label>
+          <label><input type="radio" name="kind" value="received">💸 They paid me back<small>they owe you less</small></label>
+          <label><input type="radio" name="kind" value="repaid">✅ I paid them back<small>you owe them less</small></label>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="e-amount">Amount (₹) <span class="req">*</span></label>
+          <input id="e-amount" type="number" min="1" step="any" inputmode="decimal" placeholder="500">
+        </div>
+        <div class="field">
+          <label for="e-date">Date</label>
+          <input id="e-date" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <label for="e-note">Note</label>
+        <input id="e-note" maxlength="200" placeholder="Dinner, movie tickets…" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-error" id="entryError"></div>
+    <div class="modal-actions">
+      <button type="button" id="entryCancel">Cancel</button>
+      <button type="submit" class="primary" id="entrySave">Save</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // How each kind moves the balance (positive = they owe you), and how to describe it.
+  var SIGN = { lent: 1, borrowed: -1, received: -1, repaid: 1 };
+  var LABEL = { lent: 'You lent', borrowed: 'You borrowed', received: 'Paid you back', repaid: 'You paid back' };
+
+  var state = { friends: [], currency: '₹' };
+  var editing = null;  // entry being edited, or null when adding
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function indianFormat(amount) {
+    var currency = state.currency || '₹';
+    amount = Math.abs(amount);
+    var parts = amount.toFixed(2).split('.'), intPart = parts[0], dec = parts[1] === '00' ? '' : '.' + parts[1], result;
+    if (intPart.length <= 3) { result = intPart; }
+    else {
+      var last3 = intPart.slice(-3), remaining = intPart.slice(0, -3), groups = [];
+      while (remaining.length > 2) { groups.unshift(remaining.slice(-2)); remaining = remaining.slice(0, -2); }
+      if (remaining.length > 0) groups.unshift(remaining);
+      result = groups.join(',') + ',' + last3;
+    }
+    return currency + result + dec;
+  }
+
+  function title(name) { return name.replace(/\b\w/g, function(c) { return c.toUpperCase(); }); }
+  function shortDate(iso) { return parseInt(iso.slice(8, 10), 10) + ' ' + MONTHS[parseInt(iso.slice(5, 7), 10) - 1]; }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function toast(text) {
+    var el = document.getElementById('toast');
+    el.textContent = text; el.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+  }
+
+  function api(body) {
+    var opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+    return fetch('/api/debts', opts).then(function(r) {
+      if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+      return r.json().then(function(json) {
+        if (!r.ok) throw new Error(json.error || 'Request failed');
+        return json;
+      });
+    });
+  }
+
+  function change(body, btn, message) {
+    if (btn) btn.disabled = true;
+    return api(body).then(function(json) { render(json); if (message) toast(message); })
+      .catch(function(err) { if (btn) btn.disabled = false; alert(err.message); });
+  }
+
+  // ===== Rendering =====
+  function render(json) {
+    state = json;
+    renderSummary();
+    renderPeople();
+  }
+
+  function renderSummary() {
+    var owedToYou = 0, youOwe = 0;
+    state.friends.forEach(function(f) { if (f.balance > 0) owedToYou += f.balance; else youOwe -= f.balance; });
+    var el = document.getElementById('summary');
+    if (!state.friends.length) { el.innerHTML = ''; return; }
+    var net = owedToYou - youOwe;
+    el.innerHTML = '<div class="card"><div class="card-title">Overview</div><div class="summary-grid">' +
+      stat('Friends owe you', indianFormat(owedToYou), 'var(--accent-green)', count(function(f) { return f.balance > 0; })) +
+      stat('You owe', indianFormat(youOwe), 'var(--accent-red)', count(function(f) { return f.balance < 0; })) +
+      stat('Net', (net < 0 ? '−' : '+') + indianFormat(net), net < 0 ? 'var(--accent-red)' : 'var(--accent-green)',
+        net === 0 ? 'all even' : (net > 0 ? 'more is owed to you' : 'you owe more than you\'re owed')) +
+      '</div></div>';
+  }
+
+  function count(pred) {
+    var n = state.friends.filter(pred).length;
+    return n + (n === 1 ? ' person' : ' people');
+  }
+
+  function stat(label, value, color, sub) {
+    return '<div class="stat"><label>' + label + '</label><div class="value" style="color:' + color + '">' + value + '</div><div class="sub">' + sub + '</div></div>';
+  }
+
+  function renderPeople() {
+    var el = document.getElementById('people');
+    if (!state.friends.length) {
+      el.innerHTML = '<div class="card empty"><div class="emoji">🤝</div><h2>No one owes anyone</h2>' +
+        '<p>Track money you lend to or borrow from friends, and who has paid back.</p>' +
+        '<button type="button" class="pill primary" data-action="add">＋ Add the first entry</button></div>';
+      return;
+    }
+    var open = state.friends.filter(function(f) { return f.balance !== 0; });
+    var settled = state.friends.filter(function(f) { return f.balance === 0; });
+    var html = '';
+    if (open.length) html += '<div class="people">' + open.map(personCard).join('') + '</div>';
+    if (settled.length) html += '<div class="section-heading">✅ Settled</div><div class="people">' + settled.map(personCard).join('') + '</div>';
+    el.innerHTML = html;
+    document.getElementById('peopleList').innerHTML = state.friends.map(function(f) {
+      return '<option value="' + esc(title(f.person)) + '">';
+    }).join('');
+  }
+
+  function personCard(f) {
+    var b = f.balance, name = title(f.person);
+    var cls = b > 0 ? 'owes-you' : (b < 0 ? 'you-owe' : 'settled');
+    var status = b > 0 ? name + ' owes you' : (b < 0 ? 'You owe ' + name : 'All settled');
+
+    var html = '<div class="card" data-person="' + esc(f.person) + '">';
+    html += '<div class="person-head"><div class="avatar ' + cls + '">' + esc(name.charAt(0)) + '</div>' +
+      '<div><div class="person-name">' + esc(name) + '</div><div class="person-status">' + esc(status) + '</div></div>' +
+      '<div class="icon-btns"><button type="button" class="icon-btn" data-action="rename" title="Rename">✏️</button>' +
+      '<button type="button" class="icon-btn danger" data-action="delete-person" title="Delete everything with ' + esc(name) + '">🗑</button></div></div>';
+
+    html += '<div class="balance ' + (b > 0 ? 'green' : (b < 0 ? 'red' : 'muted')) + '">' + indianFormat(b) + '</div>';
+
+    // Repaid so far, for whichever side currently owes.
+    if (b !== 0) {
+      var given = 0, back = 0;
+      f.entries.forEach(function(e) {
+        if (b > 0) { if (e.kind === 'lent') given += +e.amount; if (e.kind === 'received') back += +e.amount; }
+        else { if (e.kind === 'borrowed') given += +e.amount; if (e.kind === 'repaid') back += +e.amount; }
+      });
+      if (given > 0) {
+        var frac = Math.max(0, Math.min(1, back / given));
+        html += '<div class="bar-block"><div class="bar-label"><span>' + (b > 0 ? 'Paid you back' : 'You\'ve paid back') +
+          '</span><span><b>' + indianFormat(back) + '</b> of ' + indianFormat(given) + '</span></div>' +
+          '<div class="bar"><div class="bar-fill' + (b < 0 ? ' red' : '') + '" style="width:' + Math.round(frac * 100) + '%"></div></div></div>';
+      }
+      html += '<div class="actions"><button type="button" class="pill" data-action="settle">✅ Settle up ' + indianFormat(b) + '</button>' +
+        '<button type="button" class="pill" data-action="add-for">＋ Add entry</button></div>';
+    }
+
+    html += '<details class="history"' + (f.entries.length <= 3 && b !== 0 ? ' open' : '') + '><summary>History (' + f.entries.length + ')</summary>';
+    f.entries.forEach(function(e) {
+      var sign = SIGN[e.kind] > 0 ? 'plus' : 'minus';
+      html += '<div class="entry" data-entry="' + e.id + '"><span class="date">' + shortDate(e.date) + '</span>' +
+        '<span class="what">' + LABEL[e.kind] + (e.note ? ' <em>· ' + esc(e.note) + '</em>' : '') + '</span>' +
+        '<span class="amt ' + sign + '">' + (sign === 'plus' ? '+' : '−') + indianFormat(+e.amount) + '</span>' +
+        '<span class="icon-btns"><button type="button" class="icon-btn" data-action="edit-entry" title="Edit">✏️</button>' +
+        '<button type="button" class="icon-btn danger" data-action="delete-entry" title="Delete">🗑</button></span></div>';
+    });
+    html += '</details></div>';
+    return html;
+  }
+
+  // ===== Clicks =====
+  document.addEventListener('click', function(e) {
+    var cmd = e.target.closest('.cmd');
+    if (cmd) {
+      var text = cmd.textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(function() { toast('Copied "' + text + '"'); });
+      return;
+    }
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    if (action === 'add') { openForm(null, ''); return; }
+
+    var card = btn.closest('[data-person]');
+    var f = card && state.friends.filter(function(x) { return x.person === card.getAttribute('data-person'); })[0];
+    if (!f) return;
+    var name = title(f.person);
+    var entryRow = btn.closest('[data-entry]');
+    var entry = entryRow && f.entries.filter(function(x) { return x.id === +entryRow.getAttribute('data-entry'); })[0];
+
+    if (action === 'add-for') openForm(null, name);
+    else if (action === 'settle') {
+      var msg = f.balance > 0 ? name + ' paid you back ' + indianFormat(f.balance) : 'You paid ' + name + ' back ' + indianFormat(f.balance);
+      if (confirm('Settle up? This records: ' + msg + '.')) {
+        change({ kind: 'person', action: 'settle', data: { person: f.person } }, btn, 'Settled with ' + name + ' ✅');
+      }
+    } else if (action === 'rename') {
+      var newName = prompt('Rename ' + name + ' to:', name);
+      if (newName && newName.trim() && newName.trim().toLowerCase() !== f.person) {
+        change({ kind: 'person', action: 'rename', data: { person: f.person, name: newName.trim() } }, btn, 'Renamed');
+      }
+    } else if (action === 'delete-person') {
+      if (confirm('Delete all ' + f.entries.length + ' entries with ' + name + '? This can\'t be undone.')) {
+        change({ kind: 'person', action: 'delete', data: { person: f.person } }, btn, 'Deleted ' + name);
+      }
+    } else if (action === 'edit-entry' && entry) {
+      openForm(entry, name);
+    } else if (action === 'delete-entry' && entry) {
+      if (confirm('Delete "' + LABEL[entry.kind] + ' ' + indianFormat(+entry.amount) + '" from ' + shortDate(entry.date) + '?')) {
+        change({ kind: 'friend', action: 'delete', id: entry.id }, btn, 'Entry deleted');
+      }
+    }
+  });
+  document.getElementById('addEntryBtn').addEventListener('click', function() { openForm(null, ''); });
+
+  // ===== Add / edit form =====
+  var modal = document.getElementById('entryModal');
+  var form = document.getElementById('entryForm');
+  var errorEl = document.getElementById('entryError');
+  var saveBtn = document.getElementById('entrySave');
+
+  function openForm(entry, person) {
+    editing = entry;
+    document.getElementById('entryModalTitle').textContent = entry ? 'Edit entry' : 'Add entry';
+    document.getElementById('e-person').value = person;
+    document.getElementById('e-amount').value = entry ? +entry.amount : '';
+    document.getElementById('e-date').value = entry ? entry.date : today();
+    document.getElementById('e-note').value = entry ? entry.note : '';
+    var kind = entry ? entry.kind : 'lent';
+    form.querySelector('input[name="kind"][value="' + kind + '"]').checked = true;
+    errorEl.textContent = '';
+    modal.hidden = false;
+    document.getElementById(person ? 'e-amount' : 'e-person').focus();
+  }
+  function closeForm() { modal.hidden = true; }
+
+  document.getElementById('entryCancel').addEventListener('click', closeForm);
+  modal.addEventListener('mousedown', function(e) { if (e.target === modal) closeForm(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.hidden) closeForm(); });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var data = {
+      person: document.getElementById('e-person').value.trim(),
+      kind: form.querySelector('input[name="kind"]:checked').value,
+      amount: Number(document.getElementById('e-amount').value),
+      date: document.getElementById('e-date').value || null,
+      note: document.getElementById('e-note').value.trim()
+    };
+    if (!data.person) { errorEl.textContent = 'Enter your friend\'s name.'; return; }
+    if (!(data.amount > 0)) { errorEl.textContent = 'Enter an amount.'; return; }
+
+    var body = { kind: 'friend', action: editing ? 'update' : 'create', data: data };
+    if (editing) body.id = editing.id;
+    saveBtn.disabled = true;
+    errorEl.textContent = '';
+    api(body)
+      .then(function(json) { closeForm(); render(json); toast(editing ? 'Entry updated' : 'Entry added'); })
+      .catch(function(err) { errorEl.textContent = err.message; })
+      .finally(function() { saveBtn.disabled = false; });
+  });
+
+  // ===== Load =====
+  api(null).then(render).catch(function(err) {
+    document.getElementById('people').innerHTML = '<div class="card empty"><div class="error-box">' + esc(err.message) + '</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

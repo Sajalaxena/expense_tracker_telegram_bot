@@ -32,6 +32,14 @@
     {
       "source": "/fav-p.html",
       "destination": "/api/page?page=fav-p"
+    },
+    {
+      "source": "/loans.html",
+      "destination": "/api/page?page=loans"
+    },
+    {
+      "source": "/friends.html",
+      "destination": "/api/page?page=friends"
     }
   ],
   "crons": [

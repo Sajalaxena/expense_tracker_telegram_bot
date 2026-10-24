@@ -264,6 +264,15 @@ header h1 span { -webkit-text-fill-color: transparent; }
 }
 .modal-actions button.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
 .modal-actions button:disabled { opacity: 0.5; cursor: wait; }
+.sub-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.sub-field label { font-size: 0.75rem; color: var(--text-secondary); }
+.sub-field input, .sub-field select {
+  background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-primary); padding: 9px 11px; font-size: 0.85rem; font-family: inherit;
+}
+.sub-field input:focus, .sub-field select:focus { outline: none; border-color: var(--accent-blue); }
+.sub-hint { font-size: 0.72rem; color: var(--text-muted); }
+.sub-hint a { color: var(--accent-cyan); }
 
 .daily-burn-svg { width: 100%; overflow: visible; }
 .mom-container { width: 100%; }
@@ -286,6 +295,8 @@ header h1 span { -webkit-text-fill-color: transparent; }
       <a href="daily-details.html" style="font-size:0.8rem;color:var(--accent-purple);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">📅 Daily View</a>
       <a href="insights.html" style="font-size:0.8rem;color:var(--accent-green);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🤖 AI Insights</a>
       <a href="fav-p.html" style="font-size:0.8rem;color:var(--accent-pink);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">💖 Fav P</a>
+      <a href="loans.html" style="font-size:0.8rem;color:var(--accent-yellow);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🏦 Loans</a>
+      <a href="friends.html" style="font-size:0.8rem;color:var(--accent-cyan);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;">🤝 Friends</a>
       <select id="monthSelect" class="mono"></select>
       <button type="button" data-install-app hidden style="font-size:0.8rem;color:#fff;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));cursor:pointer;padding:8px 16px;border:none;border-radius:20px;font-family:inherit;font-weight:600;">⬇ Install App</button>
       <button type="button" id="logoutBtn" style="font-size:0.8rem;color:var(--text-secondary);background:transparent;cursor:pointer;padding:8px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.2s;font-family:inherit;">🚪 Logout</button>
@@ -344,7 +355,10 @@ header h1 span { -webkit-text-fill-color: transparent; }
 
   <!-- Active Subscriptions Section -->
   <div class="card" id="activeSubscriptionsSection">
-    <div class="card-title" style="color: var(--accent-purple);">Active Subscriptions</div>
+    <div class="card-head">
+      <div class="card-title" style="color: var(--accent-purple);">Active Subscriptions</div>
+      <button type="button" class="edit-btn" id="addSubBtn">＋ Add</button>
+    </div>
     <div class="section-placeholder">loading...</div>
   </div>
 
@@ -385,6 +399,33 @@ header h1 span { -webkit-text-fill-color: transparent; }
     <div class="modal-actions">
       <button type="button" id="budgetCancel">Cancel</button>
       <button type="submit" class="primary" id="budgetSave">Save</button>
+    </div>
+  </form>
+</div>
+
+<div class="modal-backdrop" id="subModal" hidden>
+  <form class="modal" id="subForm" novalidate>
+    <h2 id="subModalTitle">Add subscription</h2>
+    <div class="modal-sub">Renewals are logged automatically on the day of the month (or year) you added it.</div>
+    <div class="modal-body">
+      <div class="sub-field">
+        <label for="subName">Name</label>
+        <input id="subName" maxlength="50" placeholder="netflix" autocomplete="off">
+      </div>
+      <div class="sub-field">
+        <label for="subAmount">Amount (₹)</label>
+        <input id="subAmount" type="number" min="1" step="any" inputmode="decimal" placeholder="649">
+      </div>
+      <div class="sub-field">
+        <label for="subCycle">Billing cycle</label>
+        <select id="subCycle"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+      </div>
+      <div class="sub-hint">Paying off a loan? Track it on the <a href="loans.html">Loans page</a> to see EMIs left and what you still owe.</div>
+    </div>
+    <div class="modal-error" id="subError"></div>
+    <div class="modal-actions">
+      <button type="button" id="subCancel">Cancel</button>
+      <button type="submit" class="primary" id="subSave">Save</button>
     </div>
   </form>
 </div>
@@ -1087,6 +1128,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
         html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-hover);border-radius:8px;border-left:3px solid var(--accent-purple);">';
         html += '<span style="font-size:0.85rem;color:var(--text-primary);text-transform:capitalize;">'+esc(item.name)+'</span>';
         html += '<span style="display:flex;align-items:center;gap:8px;"><span style="font-size:0.8rem;font-family:\'SF Mono\',Consolas,monospace;color:var(--accent-purple);">'+indianFormat(item.monthlyCost)+item.cycleLabel+'</span>';
+        html += '<button class="del-btn edit-sub" data-sub-id="'+item.id+'" title="Edit subscription">✏️</button>';
         html += '<button class="del-btn" data-sub-id="'+item.id+'" title="Remove subscription">🗑</button></span></div>';
       }
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid var(--border);margin-top:4px;">';
@@ -1104,6 +1146,7 @@ header h1 span { -webkit-text-fill-color: transparent; }
         if (!btn) return;
         var id = parseInt(btn.getAttribute('data-sub-id'), 10);
         var sub = subscriptionsData.filter(function(s) { return s.id === id; })[0];
+        if (sub && btn.classList.contains('edit-sub')) { openSubscriptionForm(sub); return; }
         if (!sub || !confirm('Remove subscription "' + sub.name + '"?')) return;
         deleteItem('subscription', id, btn, function() {
           subscriptionsData = subscriptionsData.filter(function(s) { return s.id !== id; });
@@ -1386,6 +1429,76 @@ header h1 span { -webkit-text-fill-color: transparent; }
           .catch(function(err) { errorEl.textContent = err.message; })
           .finally(function() { saveBtn.disabled = false; });
       });
+    })();
+
+    // ===== Subscription Editor =====
+    var openSubscriptionForm = (function setupSubscriptionEditor() {
+      var modal = document.getElementById('subModal');
+      var form = document.getElementById('subForm');
+      var nameEl = document.getElementById('subName');
+      var amountEl = document.getElementById('subAmount');
+      var cycleEl = document.getElementById('subCycle');
+      var errorEl = document.getElementById('subError');
+      var saveBtn = document.getElementById('subSave');
+      var editing = null;
+
+      function open(sub) {
+        editing = sub;
+        document.getElementById('subModalTitle').textContent = sub ? 'Edit subscription' : 'Add subscription';
+        nameEl.value = sub ? sub.name : '';
+        amountEl.value = sub ? sub.amount : '';
+        cycleEl.value = sub ? sub.cycle : 'monthly';
+        errorEl.textContent = '';
+        modal.hidden = false;
+        nameEl.focus();
+      }
+
+      function close() { modal.hidden = true; }
+
+      document.getElementById('addSubBtn').addEventListener('click', function() { open(null); });
+      document.getElementById('subCancel').addEventListener('click', close);
+      modal.addEventListener('mousedown', function(e) { if (e.target === modal) close(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var payload = {
+          action: editing ? 'update' : 'create',
+          name: nameEl.value.trim(),
+          amount: Number(amountEl.value),
+          cycle: cycleEl.value
+        };
+        if (editing) payload.id = editing.id;
+        if (!payload.name) { errorEl.textContent = 'Name is required.'; return; }
+        if (!(payload.amount >= 1)) { errorEl.textContent = 'Amount must be at least 1.'; return; }
+
+        saveBtn.disabled = true;
+        errorEl.textContent = '';
+        fetch('/api/subscriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(function(r) {
+            if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+            return r.json().then(function(json) {
+              if (!r.ok) throw new Error(json.error || 'Could not save subscription');
+              return json;
+            });
+          })
+          .then(function(json) {
+            var saved = json.subscription;
+            subscriptionsData = subscriptionsData.filter(function(s) { return s.id !== saved.id; }).concat([saved]);
+            subscriptionsData.sort(function(a, b) { return a.name.localeCompare(b.name); });
+            close();
+            renderSubscriptionCostCard();
+            renderActiveSubscriptions();
+          })
+          .catch(function(err) { errorEl.textContent = err.message; })
+          .finally(function() { saveBtn.disabled = false; });
+      });
+
+      return open;
     })();
 
     // ===== Logout =====

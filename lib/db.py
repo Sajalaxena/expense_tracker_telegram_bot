@@ -406,3 +406,126 @@ class SupabaseDB:
             .upsert({"category": category, "amount": float(amount)}, on_conflict="category")
             .execute()
         )
+
+    def update_subscription(self, sub_id: int, fields: dict) -> Optional[dict]:
+        """
+        Update name, amount or cycle of an active subscription.
+
+        Returns:
+            The updated row, or None if no active subscription has that id.
+        """
+        result = (
+            self.client.table("subscriptions")
+            .update(fields)
+            .eq("id", sub_id)
+            .eq("active", True)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def latest_chat_id(self) -> Optional[int]:
+        """
+        The Telegram chat that most recently logged something — where renewals
+        of a subscription added from the dashboard are announced.
+        """
+        for table in ("txns", "subscriptions"):
+            result = (
+                self.client.table(table)
+                .select("chat_id")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if result.data:
+                return result.data[0]["chat_id"]
+        return None
+
+    # --- loans ------------------------------------------------------------
+    # Loans and the friends ledger belong to the dashboard owner, like the
+    # dashboard's other data, so they are not scoped by chat_id.
+
+    def get_loans(self) -> list[dict]:
+        """All loans, oldest first."""
+        result = self.client.table("loans").select("*").order("id").execute()
+        return result.data if result.data else []
+
+    def get_loan(self, loan_id: int) -> Optional[dict]:
+        result = self.client.table("loans").select("*").eq("id", loan_id).execute()
+        return result.data[0] if result.data else None
+
+    def add_loan(self, fields: dict) -> dict:
+        """Insert a loan and return the stored row."""
+        result = self.client.table("loans").insert(fields).execute()
+        return result.data[0]
+
+    def update_loan(self, loan_id: int, fields: dict) -> Optional[dict]:
+        result = self.client.table("loans").update(fields).eq("id", loan_id).execute()
+        return result.data[0] if result.data else None
+
+    def delete_loan(self, loan_id: int) -> bool:
+        """Delete a loan; its payments go with it (on delete cascade)."""
+        result = self.client.table("loans").delete().eq("id", loan_id).execute()
+        return bool(result.data)
+
+    def get_loan_payments(self) -> list[dict]:
+        """All loan payments, newest first."""
+        result = (
+            self.client.table("loan_payments")
+            .select("*")
+            .order("paid_on", desc=True)
+            .order("id", desc=True)
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def get_loan_payment(self, payment_id: int) -> Optional[dict]:
+        result = self.client.table("loan_payments").select("*").eq("id", payment_id).execute()
+        return result.data[0] if result.data else None
+
+    def add_loan_payment(self, fields: dict) -> dict:
+        result = self.client.table("loan_payments").insert(fields).execute()
+        return result.data[0]
+
+    def delete_loan_payment(self, payment_id: int) -> Optional[dict]:
+        result = self.client.table("loan_payments").delete().eq("id", payment_id).execute()
+        return result.data[0] if result.data else None
+
+    # --- friends ledger ---------------------------------------------------
+
+    def get_friend_txns(self) -> list[dict]:
+        """Every lent/borrowed/received/repaid entry, newest first."""
+        result = (
+            self.client.table("friend_txns")
+            .select("*")
+            .order("date", desc=True)
+            .order("id", desc=True)
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def add_friend_txn(self, fields: dict) -> dict:
+        result = self.client.table("friend_txns").insert(fields).execute()
+        return result.data[0]
+
+    def update_friend_txn(self, entry_id: int, fields: dict) -> Optional[dict]:
+        result = self.client.table("friend_txns").update(fields).eq("id", entry_id).execute()
+        return result.data[0] if result.data else None
+
+    def delete_friend_txn(self, entry_id: int) -> Optional[dict]:
+        result = self.client.table("friend_txns").delete().eq("id", entry_id).execute()
+        return result.data[0] if result.data else None
+
+    def rename_friend(self, person: str, new_person: str) -> int:
+        """Move all of a person's entries to a new name. Returns rows changed."""
+        result = (
+            self.client.table("friend_txns")
+            .update({"person": new_person})
+            .eq("person", person)
+            .execute()
+        )
+        return len(result.data or [])
+
+    def delete_friend(self, person: str) -> int:
+        """Delete all of a person's entries. Returns rows deleted."""
+        result = self.client.table("friend_txns").delete().eq("person", person).execute()
+        return len(result.data or [])

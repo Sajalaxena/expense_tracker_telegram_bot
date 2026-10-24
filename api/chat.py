@@ -1,8 +1,8 @@
 """AI chat about the user's expenses — Vercel serverless function.
 
 Accepts POST {"question": str, "history": [{"role": "user"|"model", "text": str}]},
-gives Gemini a compact snapshot of the user's transactions and subscriptions
-as grounding context, and returns {"reply": str}.
+gives Gemini a compact snapshot of the user's transactions, subscriptions,
+loans and friend balances as grounding context, and returns {"reply": str}.
 """
 
 import json
@@ -16,6 +16,7 @@ from lib.config import apply_budget_overrides, load_config_from_env
 from lib.dates import local_today
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
+from lib.loans import ai_context_lines
 from lib.ratelimit import check_rate_limit, get_client_id
 
 MAX_QUESTION_CHARS = 500
@@ -39,7 +40,8 @@ def _fmt(amount: float) -> str:
     return f"{amount:,.0f}" if float(amount).is_integer() else f"{amount:,.2f}"
 
 
-def _build_context(rows: list, subscriptions: list, config, today: date) -> str:
+def _build_context(rows: list, subscriptions: list, config, today: date,
+                   debt_lines: list | None = None) -> str:
     currency = config.currency
     rows = [r for r in rows if r.get("category") != "fav_p" and r.get("date")]
 
@@ -78,6 +80,10 @@ def _build_context(rows: list, subscriptions: list, config, today: date) -> str:
         lines.append("Active subscriptions:")
         for s in subscriptions:
             lines.append(f"- {s['name']}: {currency}{_fmt(float(s['amount']))}/{s['cycle']}")
+
+    if debt_lines:
+        lines.append("")
+        lines.extend(debt_lines)
 
     recent = sorted(rows, key=lambda r: (r["date"], r.get("id") or 0), reverse=True)
     recent = recent[:MAX_TRANSACTIONS_IN_CONTEXT]
@@ -155,8 +161,10 @@ class handler(BaseHTTPRequestHandler):
                 )
                 return
 
+            today = local_today()
             context = _build_context(
-                db.all_rows(), db.get_all_active_subscriptions(), config, local_today()
+                db.all_rows(), db.get_all_active_subscriptions(), config, today,
+                ai_context_lines(db, config.currency, today),
             )
 
             reply = call_gemini(

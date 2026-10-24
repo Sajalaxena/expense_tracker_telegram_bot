@@ -3,8 +3,8 @@
 Summarizes the signed-in user's spending for a given month and asks Google
 Gemini for short, actionable tips grouped by topic (expenses, subscriptions,
 loans/debt, investments, general habits). No raw transaction notes are sent —
-only category totals and subscription data — to keep the prompt small and
-avoid leaking unnecessary detail.
+only category totals, subscriptions, loan balances and friend balances — to
+keep the prompt small and avoid leaking unnecessary detail.
 """
 
 import json
@@ -16,8 +16,10 @@ from urllib.parse import parse_qs, urlparse
 
 from lib.auth import is_authenticated
 from lib.config import apply_budget_overrides, load_config_from_env
+from lib.dates import local_today
 from lib.db import SupabaseDB
 from lib.gemini import call_gemini
+from lib.loans import ai_context_lines
 from lib.ratelimit import check_rate_limit, get_client_id
 
 TIP_SECTIONS = [
@@ -32,7 +34,7 @@ RESPONSE_SCHEMA = """{
   "summary": string (one encouraging or cautionary sentence overview of the month),
   "expense_tips": [string, ...] (2-3 tips about specific spending categories),
   "subscription_tips": [string, ...] (1-2 tips about active subscriptions, or general subscription hygiene if none),
-  "loan_tips": [string, ...] (1-2 general loan/EMI/debt-management tips, since this app does not track loans directly),
+  "loan_tips": [string, ...] (1-2 loan/EMI/debt tips, about the user's own loans when listed, e.g. which to prepay first),
   "investment_tips": [string, ...] (1-2 concrete tips, e.g. SIP, PPF, emergency fund, index funds),
   "general_tips": [string, ...] (1-2 general money-habit tips)
 }"""
@@ -43,15 +45,15 @@ def _month_str(date_str: str) -> str:
 
 
 def _build_prompt(month: str, config, category_totals: dict, month_total: float,
-                   prev_total: float, subscriptions: list) -> str:
+                   prev_total: float, subscriptions: list, debt_lines: list | None = None) -> str:
     currency = config.currency
-    has_data = bool(category_totals) or bool(subscriptions)
+    has_data = bool(category_totals) or bool(subscriptions) or bool(debt_lines)
 
     lines = [
         "You are a friendly, practical personal finance coach for someone in India "
-        "who tracks expenses and subscriptions in an app called Tracksy. "
-        "This app does not track loans/EMIs directly, so loan tips should be general "
-        "debt-management best practices, not tied to specific numbers.",
+        "who tracks expenses, subscriptions, loans and money lent to friends in an app "
+        "called Tracksy. If no loans are listed, loan tips should be general "
+        "debt-management best practices.",
         f"Currency symbol: {currency}.",
         "",
     ]
@@ -73,6 +75,7 @@ def _build_prompt(month: str, config, category_totals: dict, month_total: float,
             lines.append("Active subscriptions:")
             for sub in subscriptions:
                 lines.append(f"- {sub['name']}: {currency}{sub['amount']:.0f}/{sub['cycle']}")
+        lines.extend(debt_lines or [])
     else:
         lines.append(
             "No spending has been logged yet, so give friendly beginner-level "
@@ -176,7 +179,8 @@ class handler(BaseHTTPRequestHandler):
             subscriptions = db.get_all_active_subscriptions()
 
             prompt = _build_prompt(
-                month, config, category_totals, month_total, prev_total, subscriptions
+                month, config, category_totals, month_total, prev_total, subscriptions,
+                ai_context_lines(db, config.currency, local_today()),
             )
             insights = _call_gemini(config.gemini_api_key, prompt)
 

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0e14">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/pwa.js" defer></script>
+<title>Tracksy — Loans &amp; EMIs</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0c0e14;
+  --bg-card: rgba(22, 27, 45, 0.8);
+  --bg-card-solid: #161b2d;
+  --bg-hover: rgba(99, 102, 241, 0.08);
+  --border: rgba(99, 102, 241, 0.15);
+  --border-hover: rgba(99, 102, 241, 0.4);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-blue: #6366f1;
+  --accent-purple: #8b5cf6;
+  --accent-cyan: #06b6d4;
+  --accent-pink: #ec4899;
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+  --gradient-green: linear-gradient(90deg, #10b981, #06b6d4);
+  --gradient-blue: linear-gradient(90deg, #6366f1, #8b5cf6);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+}
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes grow { from { width: 0; } }
+
+body {
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Helvetica, Arial, sans-serif;
+  line-height: 1.6; padding: 40px; min-height: 100vh;
+}
+.mono { font-family: var(--mono); }
+.container { max-width: 1100px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 2rem; font-weight: 800; letter-spacing: -1px;
+  background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+header h1 small { font-size: 1rem; font-weight: 600; letter-spacing: 0; }
+.nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill {
+  font-size: 0.8rem; text-decoration: none; padding: 8px 16px; border: 1px solid var(--border);
+  border-radius: 20px; transition: all 0.2s; background: transparent; cursor: pointer; font-family: inherit;
+  color: var(--text-secondary);
+}
+.pill:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.pill.primary { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border: none; color: #fff; font-weight: 600; }
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 28px; margin-bottom: 24px; box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.card-title {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--text-muted); margin-bottom: 18px;
+}
+
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stat { padding: 14px 16px; border-radius: var(--radius-sm); background: var(--bg-hover); border: 1px solid rgba(99,102,241,0.08); }
+.stat label { display: block; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 6px; }
+.stat .value { font-family: var(--mono); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
+.stat .sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.tg-tip {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; margin-bottom: 24px;
+  border-radius: var(--radius-sm); border: 1px dashed rgba(6,182,212,0.35); background: rgba(6,182,212,0.05);
+  font-size: 0.82rem; color: var(--text-secondary);
+}
+.tg-tip b { color: var(--text-primary); }
+.cmd {
+  display: inline-block; font-family: var(--mono); font-size: 0.75rem; color: var(--accent-cyan);
+  background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25); border-radius: 6px;
+  padding: 1px 7px; margin: 2px 2px; cursor: pointer; white-space: nowrap;
+}
+.cmd:hover { background: rgba(6,182,212,0.2); }
+
+.loan-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.loan-grid .card { margin-bottom: 0; display: flex; flex-direction: column; gap: 16px; }
+.section-heading { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin: 36px 0 16px; }
+
+.loan-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.loan-name { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.loan-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.icon-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.icon-btn {
+  background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted);
+  cursor: pointer; font-size: 0.85rem; padding: 5px 8px; transition: all 0.2s;
+}
+.icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border); }
+.icon-btn.danger:hover { color: var(--accent-red); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.icon-btn:disabled { opacity: 0.4; cursor: wait; }
+
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; width: fit-content; }
+.badge.green { color: var(--accent-green); background: rgba(16,185,129,0.12); }
+.badge.yellow { color: var(--accent-yellow); background: rgba(245,158,11,0.12); }
+.badge.red { color: var(--accent-red); background: rgba(239,68,68,0.12); }
+.badge.muted { color: var(--text-secondary); background: var(--bg-hover); }
+
+.big-number { font-family: var(--mono); font-size: 1.9rem; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
+.big-number small { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0; font-family: inherit; }
+
+.bar-block { display: flex; flex-direction: column; gap: 6px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); }
+.bar-label b { color: var(--text-primary); font-family: var(--mono); }
+.bar { height: 10px; border-radius: 6px; background: rgba(148,163,184,0.12); overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; background: var(--gradient-blue); animation: grow 1s cubic-bezier(0.16, 1, 0.3, 1); }
+.bar-fill.green { background: var(--gradient-green); }
+
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 3px; background: rgba(148,163,184,0.15); }
+.dot.paid { background: var(--accent-purple); }
+.dot.now { outline: 2px solid var(--accent-yellow); outline-offset: 1px; }
+
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fact { padding: 10px 12px; border-radius: 10px; background: var(--bg-hover); }
+.fact label { display: block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; }
+.fact span { font-family: var(--mono); font-size: 0.88rem; font-weight: 600; }
+
+.insight { font-size: 0.8rem; color: var(--accent-green); background: rgba(16,185,129,0.08); border-radius: 10px; padding: 10px 12px; }
+.loan-tg { font-size: 0.75rem; color: var(--text-muted); }
+
+details.history summary { cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); list-style: none; user-select: none; }
+details.history summary::-webkit-details-marker { display: none; }
+details.history summary::before { content: '▸ '; }
+details.history[open] summary::before { content: '▾ '; }
+.pay-row {
+  display: grid; grid-template-columns: 64px 1fr auto auto; align-items: center; gap: 10px;
+  padding: 8px 4px; border-bottom: 1px solid rgba(99,102,241,0.08); font-size: 0.8rem;
+}
+.pay-row:last-child { border-bottom: none; }
+.pay-row .date { color: var(--text-muted); font-family: var(--mono); font-size: 0.74rem; }
+.pay-row .split { color: var(--text-muted); font-size: 0.7rem; }
+.pay-row .amt { font-family: var(--mono); font-weight: 600; }
+.tag { font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; margin-right: 6px; }
+.tag.emi { color: var(--accent-purple); background: rgba(139,92,246,0.12); }
+.tag.prepayment { color: var(--accent-green); background: rgba(16,185,129,0.12); }
+
+.empty { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
+.empty .emoji { font-size: 2.5rem; }
+.empty h2 { font-size: 1.1rem; color: var(--text-primary); margin: 8px 0 4px; }
+.empty p { font-size: 0.85rem; margin-bottom: 18px; }
+.error-box { color: var(--accent-red); font-size: 0.85rem; }
+
+/* ===== Modal ===== */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  background: var(--bg-card-solid); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md); width: 100%; max-width: 560px; max-height: 92vh; display: flex; flex-direction: column;
+}
+.modal h2 { font-size: 1rem; padding: 20px 20px 4px; }
+.modal-sub { font-size: 0.75rem; color: var(--text-muted); padding: 0 20px 8px; }
+.modal-body { overflow-y: auto; padding: 4px 20px 8px; }
+.form-group-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-purple); margin: 14px 0 8px; }
+.form-group-title.optional { color: var(--text-muted); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 0.75rem; color: var(--text-secondary); }
+.field label .req { color: var(--accent-red); }
+.field .hint { font-size: 0.68rem; color: var(--text-muted); }
+.field input, .field select, .field textarea {
+  background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);
+  padding: 9px 11px; font-size: 0.85rem; font-family: inherit; width: 100%;
+}
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent-blue); }
+.field textarea { resize: vertical; min-height: 56px; }
+.preview { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--bg-hover); font-size: 0.78rem; color: var(--text-secondary); min-height: 1em; }
+.preview:empty { display: none; }
+.preview b { color: var(--text-primary); font-family: var(--mono); }
+.modal-error { color: var(--accent-red); font-size: 0.8rem; padding: 6px 20px 0; min-height: 1em; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px 20px; }
+.modal-actions button {
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem; padding: 8px 16px; font-family: inherit;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+}
+.modal-actions button.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.modal-actions button:disabled { opacity: 0.5; cursor: wait; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: var(--bg-card-solid); border: 1px solid var(--border); color: var(--text-primary);
+  padding: 10px 18px; border-radius: 20px; font-size: 0.82rem; box-shadow: var(--shadow-md);
+  transition: all 0.25s ease; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 900px) {
+  .loan-grid { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+}
+/* Let grid columns shrink below their content (long command chips) instead of overflowing. */
+.loan-grid > *, .summary-grid > *, .facts > * { min-width: 0; }
+.cmd { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+@media (max-width: 600px) {
+  body { padding: 16px; overflow-x: hidden; }
+  .stat .value { font-size: 1.1rem; }
+  .cmd { white-space: normal; }
+  header h1 { font-size: 1.5rem; }
+  .card { padding: 20px; }
+  .facts { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .big-number { font-size: 1.6rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>▌tracksy <small>· loans &amp; EMIs</small></h1>
+    <nav class="nav">
+      <a class="pill" href="/dashboard.html">← Dashboard</a>
+      <a class="pill" href="/friends.html">🤝 Friends</a>
+      <button type="button" class="pill primary" id="addLoanBtn">＋ Add loan</button>
+    </nav>
+  </header>
+
+  <div id="summary"></div>
+
+  <div class="tg-tip">
+    <span>💬</span>
+    <div>
+      <b>Mark EMIs from Telegram.</b> Send the loan's name with what you paid:
+      <span class="cmd">home loan emi done</span>
+      <span class="cmd">home loan emi paid 26500</span>
+      <span class="cmd">home loan 2 emis done</span>
+      <span class="cmd">home loan lumpsum 50000</span>
+      <span class="cmd">/loans</span>
+      — tap a command to copy it. Everything else you can change here.
+    </div>
+  </div>
+
+  <div id="loans"><div class="card empty">Loading…</div></div>
+</div>
+
+<div class="modal-backdrop" id="loanModal" hidden>
+  <form class="modal" id="loanForm" novalidate>
+    <h2 id="loanModalTitle">Add loan</h2>
+    <div class="modal-sub">Fields marked <span style="color:var(--accent-red)">*</span> are required. Leave the rest blank if you don't know them.</div>
+    <div class="modal-body">
+      <div class="form-group-title">Required</div>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="f-name">Loan name <span class="req">*</span></label>
+          <input id="f-name" maxlength="50" placeholder="e.g. Home Loan" autocomplete="off">
+          <span class="hint">You'll use this name in Telegram: "<span id="nameHint">home loan</span> emi done"</span>
+        </div>
+        <div class="field">
+          <label for="f-principal">Loan amount (₹) <span class="req">*</span></label>
+          <input id="f-principal" type="number" min="1" step="any" inputmode="decimal" placeholder="2500000">
+        </div>
+        <div class="field">
+          <label for="f-tenure">Total EMIs (months) <span class="req">*</span></label>
+          <input id="f-tenure" type="number" min="1" max="600" step="1" inputmode="numeric" placeholder="240">
+        </div>
+        <div class="field full">
+          <label for="f-emi">EMI amount (₹) <span class="req">*</span></label>
+          <input id="f-emi" type="number" min="1" step="any" inputmode="decimal" placeholder="25000">
+          <span class="hint">Or leave blank and enter the interest rate below — the EMI is calculated for you.</span>
+        </div>
+      </div>
+
+      <div class="form-group-title optional">Optional</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-rate">Interest rate (% per year)</label>
+          <input id="f-rate" type="number" min="0" max="60" step="any" inputmode="decimal" placeholder="8.5">
+        </div>
+        <div class="field">
+          <label for="f-type">Loan type</label>
+          <select id="f-type"></select>
+        </div>
+        <div class="field">
+          <label for="f-lender">Lender / bank</label>
+          <input id="f-lender" maxlength="50" placeholder="HDFC" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="f-paid">EMIs already paid</label>
+          <input id="f-paid" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+        </div>
+        <div class="field">
+          <label for="f-outstanding">Outstanding now (₹)</label>
+          <input id="f-outstanding" type="number" min="0" step="any" inputmode="decimal" placeholder="calculated">
+          <span class="hint">From your bank statement. Blank = calculate it.</span>
+        </div>
+        <div class="field">
+          <label for="f-day">EMI day of month</label>
+          <input id="f-day" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="5">
+          <span class="hint">For "due in N days" reminders.</span>
+        </div>
+        <div class="field">
+          <label for="f-start">First EMI date</label>
+          <input id="f-start" type="date">
+        </div>
+        <div class="field full">
+          <label for="f-notes">Notes</label>
+          <textarea id="f-notes" maxlength="200" placeholder="Account no., insurance, anything"></textarea>
+        </div>
+      </div>
+      <div class="preview" id="loanPreview"></div>
+    </div>
+    <div class="modal-error" id="loanError"></div>
+    <div class="modal-actions">
+      <button type="button" id="loanCancel">Cancel</button>
+      <button type="submit" class="primary" id="loanSave">Save loan</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  var TYPE_LABELS = {
+    home: '🏠 Home', car: '🚗 Car', bike: '🏍️ Bike', personal: '👤 Personal', education: '🎓 Education',
+    gold: '🪙 Gold', credit_card: '💳 Credit card', consumer: '📱 Consumer durable', other: '🏦 Other'
+  };
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DOTS_MAX = 60;  // show one dot per EMI up to this tenure
+
+  var state = { loans: [], loanTypes: Object.keys(TYPE_LABELS), currency: '₹' };
+  var editingId = null;
+
+  // Escape user-supplied text (names, notes) before putting it into innerHTML.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ===== Indian Number Formatting =====
+  function indianFormat(amount) {
+    var currency = state.currency || '₹';
+    var isNegative = amount < 0;
+    amount = Math.abs(Math.round(amount));
+    var intPart = String(amount), result;
+    if (intPart.length <= 3) { result = intPart; }
+    else {
+      var last3 = intPart.slice(-3), remaining = intPart.slice(0, -3), groups = [];
+      while (remaining.length > 2) { groups.unshift(remaining.slice(-2)); remaining = remaining.slice(0, -2); }
+      if (remaining.length > 0) groups.unshift(remaining);
+      result = groups.join(',') + ',' + last3;
+    }
+    return currency + (isNegative ? '-' : '') + result;
+  }
+
+  function monthLabel(ym) { return ym ? MONTHS[parseInt(ym.slice(5, 7), 10) - 1] + ' ' + ym.slice(0, 4) : ''; }
+  function shortDate(iso) { return parseInt(iso.slice(8, 10), 10) + ' ' + MONTHS[parseInt(iso.slice(5, 7), 10) - 1]; }
+  function pct(fraction) { return Math.round(fraction * 100); }
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  function toast(text) {
+    var el = document.getElementById('toast');
+    el.textContent = text; el.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+  }
+
+  // ===== API =====
+  function api(body) {
+    var opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+    return fetch('/api/debts', opts).then(function(r) {
+      if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+      return r.json().then(function(json) {
+        if (!r.ok) throw new Error(json.error || 'Request failed');
+        return json;
+      });
+    });
+  }
+
+  function change(body, btn, message) {
+    if (btn) btn.disabled = true;
+    return api(body).then(function(json) { render(json); if (message) toast(message); })
+      .catch(function(err) { if (btn) btn.disabled = false; alert(err.message); });
+  }
+
+  // ===== EMI maths (mirrors lib/loans.py, for the form preview) =====
+  function computeEmi(p, rate, n) {
+    var r = rate / 1200;
+    if (!r) return p / n;
+    var g = Math.pow(1 + r, n);
+    return p * r * g / (g - 1);
+  }
+  function balanceAfter(p, rate, emi, k) {
+    var r = rate / 1200;
+    if (!r) return Math.max(0, p - emi * k);
+    var g = Math.pow(1 + r, k);
+    return Math.max(0, p * g - emi * (g - 1) / r);
+  }
+
+  // ===== Rendering =====
+  function render(json) {
+    state = json;
+    renderSummary();
+    renderLoans();
+  }
+
+  function renderSummary() {
+    var open = state.loans.filter(function(l) { return !l.status.closed; });
+    var el = document.getElementById('summary');
+    if (!state.loans.length) { el.innerHTML = ''; return; }
+
+    var outstanding = 0, emis = 0, leftToPay = 0, interest = 0, principal = 0, paidThisMonth = 0;
+    state.loans.forEach(function(l) { interest += l.status.interest_paid; });
+    open.forEach(function(l) {
+      outstanding += +l.outstanding; emis += +l.emi_amount; leftToPay += l.status.left_to_pay;
+      principal += +l.principal;
+      if (l.status.paid_this_month) paidThisMonth++;
+    });
+
+    var html = '<div class="card"><div class="card-title">Overview</div><div class="summary-grid">';
+    html += stat('Total outstanding', indianFormat(outstanding), plural(open.length, 'active loan'), 'var(--accent-red)');
+    html += stat('EMIs per month', indianFormat(emis), paidThisMonth + ' of ' + open.length + ' paid this month', 'var(--accent-purple)');
+    html += stat('Left to pay', '≈' + indianFormat(leftToPay), 'EMIs still due, all loans', 'var(--accent-yellow)');
+    html += stat('Interest paid', indianFormat(interest), 'on EMIs logged here', 'var(--accent-cyan)');
+    html += '</div>';
+    if (principal > 0) {
+      var repaid = Math.max(0, Math.min(1, 1 - outstanding / principal));
+      html += '<div class="bar-block" style="margin-top:18px">' +
+        '<div class="bar-label"><span>Overall repaid</span><span><b>' + pct(repaid) + '%</b></span></div>' +
+        '<div class="bar"><div class="bar-fill green" style="width:' + pct(repaid) + '%"></div></div></div>';
+    }
+    el.innerHTML = html + '</div>';
+  }
+
+  function stat(label, value, sub, color) {
+    return '<div class="stat"><label>' + label + '</label><div class="value" style="color:' + color + '">' + value +
+      '</div><div class="sub">' + sub + '</div></div>';
+  }
+
+  function renderLoans() {
+    var el = document.getElementById('loans');
+    if (!state.loans.length) {
+      el.innerHTML = '<div class="card empty"><div class="emoji">🏦</div><h2>No loans yet</h2>' +
+        '<p>Add a loan to track EMIs paid, EMIs left and what you still owe.</p>' +
+        '<button type="button" class="pill primary" data-action="add">＋ Add your first loan</button></div>';
+      return;
+    }
+    var open = state.loans.filter(function(l) { return !l.status.closed; });
+    var closed = state.loans.filter(function(l) { return l.status.closed; });
+    var html = '<div class="loan-grid">' + open.map(loanCard).join('') + '</div>';
+    if (closed.length) {
+      html += '<div class="section-heading">🎉 Closed loans</div><div class="loan-grid">' + closed.map(loanCard).join('') + '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function dueBadge(s) {
+    if (s.closed) return '<span class="badge green">🎉 Fully repaid</span>';
+    if (s.paid_this_month) return '<span class="badge green">✓ This month\'s EMI paid</span>';
+    if (s.due_in_days === null) return '<span class="badge muted">○ This month\'s EMI not marked yet</span>';
+    if (s.due_in_days < 0) return '<span class="badge red">⚠ Overdue by ' + plural(-s.due_in_days, 'day') + '</span>';
+    if (s.due_in_days === 0) return '<span class="badge yellow">⏰ Due today</span>';
+    if (s.due_in_days <= 5) return '<span class="badge yellow">⏳ Due in ' + plural(s.due_in_days, 'day') + ' · ' + shortDate(s.next_due) + '</span>';
+    return '<span class="badge muted">📅 Next EMI ' + shortDate(s.next_due) + '</span>';
+  }
+
+  function loanCard(l) {
+    var s = l.status, tenure = +l.tenure_months, paid = +l.emis_paid;
+    var hasRate = l.interest_rate !== null && l.interest_rate !== undefined;
+    var meta = [TYPE_LABELS[l.loan_type] || l.loan_type];
+    if (l.lender) meta.push(esc(l.lender));
+    if (hasRate) meta.push(+l.interest_rate + '% p.a.');
+
+    var html = '<div class="card" data-id="' + l.id + '">';
+    html += '<div class="loan-head"><div><div class="loan-name">' + esc(l.name) + '</div>' +
+      '<div class="loan-meta">' + meta.join(' · ') + '</div></div>' +
+      '<div class="icon-btns"><button type="button" class="icon-btn" data-action="edit" title="Edit loan">✏️</button>' +
+      '<button type="button" class="icon-btn danger" data-action="delete" title="Delete loan">🗑</button></div></div>';
+
+    html += dueBadge(s);
+
+    html += '<div><div class="big-number">' + indianFormat(+l.outstanding) + '</div>' +
+      '<div class="loan-meta">' + (hasRate ? 'principal outstanding of ' : 'still to pay of ') + indianFormat(+l.principal) + ' borrowed</div></div>';
+
+    // EMIs paid: dots for short loans, plus a bar.
+    html += '<div class="bar-block"><div class="bar-label"><span>EMIs paid</span><span><b>' + paid + '</b> of ' + tenure +
+      ' · ' + pct(s.emi_progress) + '%</span></div>';
+    if (tenure <= DOTS_MAX) {
+      html += '<div class="dots">';
+      for (var i = 0; i < tenure; i++) {
+        var cls = i < paid ? 'dot paid' : (i === paid && !s.closed && !s.paid_this_month ? 'dot now' : 'dot');
+        html += '<span class="' + cls + '" title="EMI ' + (i + 1) + '"></span>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div class="bar"><div class="bar-fill" style="width:' + pct(s.emi_progress) + '%"></div></div>';
+    }
+    html += '</div>';
+
+    html += '<div class="bar-block"><div class="bar-label"><span>' + (hasRate ? 'Principal repaid' : 'Amount repaid') +
+      '</span><span><b>' + pct(s.repaid_progress) + '%</b></span></div>' +
+      '<div class="bar"><div class="bar-fill green" style="width:' + pct(s.repaid_progress) + '%"></div></div></div>';
+
+    html += '<div class="facts">';
+    html += fact('EMI', indianFormat(+l.emi_amount));
+    html += fact('EMIs left', s.closed ? '0' : String(s.emis_left));
+    html += fact('Left to pay', s.closed ? '—' : '≈' + indianFormat(s.left_to_pay));
+    html += fact('Ends', s.ends ? monthLabel(s.ends) : (s.closed ? 'Done' : '—'));
+    html += fact('Interest paid', indianFormat(s.interest_paid));
+    html += fact('Prepaid', indianFormat(s.prepaid));
+    html += '</div>';
+
+    if (s.emis_left_at_balance !== null && s.emis_left_at_balance < s.emis_left) {
+      html += '<div class="insight">💡 At today\'s balance this loan clears in ≈' + plural(s.emis_left_at_balance, 'EMI') +
+        ' — ' + (s.emis_left - s.emis_left_at_balance) + ' fewer than scheduled, thanks to prepayments.</div>';
+    }
+    if (l.notes) html += '<div class="loan-meta">📝 ' + esc(l.notes) + '</div>';
+
+    if (!s.closed) {
+      var name = esc(l.name.toLowerCase());
+      html += '<div class="loan-tg">Telegram: <span class="cmd">' + name + ' emi done</span>' +
+        '<span class="cmd">' + name + ' lumpsum 50000</span></div>';
+    }
+
+    html += '<details class="history"><summary>Payment history (' + l.payments.length + ')</summary>';
+    if (!l.payments.length) {
+      html += '<div class="loan-meta" style="padding:8px 4px">No payments logged yet. Send "' + esc(l.name.toLowerCase()) + ' emi done" to the bot.</div>';
+    }
+    l.payments.forEach(function(p) {
+      var split = p.kind === 'emi' && +p.interest > 0
+        ? indianFormat(+p.principal) + ' principal · ' + indianFormat(+p.interest) + ' interest'
+        : (p.kind === 'prepayment' ? 'all to principal' : '');
+      html += '<div class="pay-row"><span class="date">' + shortDate(p.paid_on) + '</span>' +
+        '<span><span class="tag ' + p.kind + '">' + (p.kind === 'emi' ? 'EMI' : 'PREPAY') + '</span>' +
+        '<span class="split">' + split + '</span></span>' +
+        '<span class="amt">' + indianFormat(+p.amount) + '</span>' +
+        '<button type="button" class="icon-btn danger" data-action="undo-payment" data-payment="' + p.id + '" title="Undo this payment">↩️</button></div>';
+    });
+    html += '</details></div>';
+    return html;
+  }
+
+  function fact(label, value) { return '<div class="fact"><label>' + label + '</label><span>' + value + '</span></div>'; }
+
+  // ===== Clicks =====
+  document.addEventListener('click', function(e) {
+    var cmd = e.target.closest('.cmd');
+    if (cmd) {
+      var text = cmd.textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(function() { toast('Copied "' + text + '"'); });
+      return;
+    }
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    if (action === 'add') { openForm(null); return; }
+
+    var card = btn.closest('[data-id]');
+    var loan = card && state.loans.filter(function(l) { return l.id === +card.getAttribute('data-id'); })[0];
+    if (!loan) return;
+
+    if (action === 'edit') openForm(loan);
+    else if (action === 'delete') {
+      if (confirm('Delete "' + loan.name + '" and its ' + plural(loan.payments.length, 'payment') + '? This can\'t be undone.')) {
+        change({ kind: 'loan', action: 'delete', id: loan.id }, btn, 'Loan deleted');
+      }
+    } else if (action === 'undo-payment') {
+      var id = +btn.getAttribute('data-payment');
+      var p = loan.payments.filter(function(x) { return x.id === id; })[0];
+      var what = p.kind === 'emi' ? 'EMI' : 'prepayment';
+      if (confirm('Undo the ' + indianFormat(+p.amount) + ' ' + what + ' from ' + shortDate(p.paid_on) + '? The outstanding goes back up.')) {
+        change({ kind: 'payment', action: 'delete', id: id }, btn, 'Payment undone');
+      }
+    }
+  });
+  document.getElementById('addLoanBtn').addEventListener('click', function() { openForm(null); });
+
+  // ===== Add / edit form =====
+  var modal = document.getElementById('loanModal');
+  var form = document.getElementById('loanForm');
+  var errorEl = document.getElementById('loanError');
+  var saveBtn = document.getElementById('loanSave');
+  var FIELDS = {
+    name: 'f-name', principal: 'f-principal', tenure_months: 'f-tenure', emi_amount: 'f-emi',
+    interest_rate: 'f-rate', loan_type: 'f-type', lender: 'f-lender', emis_paid: 'f-paid',
+    outstanding: 'f-outstanding', emi_day: 'f-day', start_date: 'f-start', notes: 'f-notes'
+  };
+  var NUMERIC = ['principal', 'tenure_months', 'emi_amount', 'interest_rate', 'emis_paid', 'outstanding', 'emi_day'];
+
+  function $(key) { return document.getElementById(FIELDS[key]); }
+  function num(key) { var v = $(key).value.trim(); return v === '' ? null : Number(v); }
+
+  function openForm(loan) {
+    editingId = loan ? loan.id : null;
+    document.getElementById('loanModalTitle').textContent = loan ? 'Edit ' + loan.name : 'Add loan';
+    $('loan_type').innerHTML = state.loanTypes.map(function(t) {
+      return '<option value="' + t + '">' + (TYPE_LABELS[t] || t) + '</option>';
+    }).join('');
+    Object.keys(FIELDS).forEach(function(key) {
+      var value = loan ? loan[key] : null;
+      $(key).value = value === null || value === undefined ? (key === 'loan_type' ? 'other' : '') : value;
+    });
+    errorEl.textContent = '';
+    updatePreview();
+    modal.hidden = false;
+    $('name').focus();
+  }
+  function closeForm() { modal.hidden = true; }
+
+  function updatePreview() {
+    var name = $('name').value.trim().toLowerCase();
+    document.getElementById('nameHint').textContent = name || 'home loan';
+
+    var p = num('principal'), n = num('tenure_months'), rate = num('interest_rate'), emi = num('emi_amount');
+    var paid = num('emis_paid') || 0, out = num('outstanding');
+    var bits = [];
+    if (p && n) {
+      var calcEmi = emi || (rate !== null ? computeEmi(p, rate, n) : null);
+      if (!emi && calcEmi) bits.push('EMI will be <b>' + indianFormat(calcEmi) + '</b>/month (from the rate)');
+      if (calcEmi && rate !== null) {
+        var interest = calcEmi * n - p;
+        if (interest > 0) bits.push('Total interest over the loan ≈ <b>' + indianFormat(interest) + '</b>');
+      }
+      if (out === null && calcEmi && paid <= n) {
+        var calcOut = rate !== null ? balanceAfter(p, rate, calcEmi, paid) : (n - paid) * calcEmi;
+        bits.push('Outstanding will be ≈ <b>' + indianFormat(calcOut) + '</b>' + (rate !== null ? '' : ' (EMIs left × EMI)'));
+      }
+      if (paid <= n) bits.push('<b>' + (n - paid) + '</b> of ' + n + ' EMIs left');
+    }
+    document.getElementById('loanPreview').innerHTML = bits.join('<br>');
+  }
+
+  form.addEventListener('input', updatePreview);
+  document.getElementById('loanCancel').addEventListener('click', closeForm);
+  modal.addEventListener('mousedown', function(e) { if (e.target === modal) closeForm(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.hidden) closeForm(); });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var data = {};
+    Object.keys(FIELDS).forEach(function(key) {
+      data[key] = NUMERIC.indexOf(key) >= 0 ? num(key) : ($(key).value.trim() || null);
+    });
+    if (!data.name) { errorEl.textContent = 'Give the loan a name.'; return; }
+    if (!data.principal || !data.tenure_months) { errorEl.textContent = 'Loan amount and total EMIs are required.'; return; }
+    if (!data.emi_amount && data.interest_rate === null) { errorEl.textContent = 'Enter the EMI amount, or the interest rate to calculate it.'; return; }
+
+    var body = { kind: 'loan', action: editingId ? 'update' : 'create', data: data };
+    if (editingId) body.id = editingId;
+    saveBtn.disabled = true;
+    errorEl.textContent = '';
+    api(body)
+      .then(function(json) { closeForm(); render(json); toast(editingId ? 'Loan updated' : 'Loan added'); })
+      .catch(function(err) { errorEl.textContent = err.message; })
+      .finally(function() { saveBtn.disabled = false; });
+  });
+
+  // ===== Load =====
+  api(null).then(render).catch(function(err) {
+    document.getElementById('loans').innerHTML = '<div class="card empty"><div class="error-box">' + esc(err.message) + '</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

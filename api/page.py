@@ -1,7 +1,7 @@
 """Gated static page server — Vercel serverless function.
 
 vercel.json rewrites the app's real pages (/, /dashboard.html, /daily-details.html,
-/insights.html, /fav-p.html) to this function with a `page` query param, so the
+/insights.html, /fav-p.html, /loans.html, /friends.html) to this function with a `page` query param, so the
 HTML is only ever sent to a browser holding a valid session cookie. Anyone else
 is redirected to /login.html, which is served directly (not rewritten) and
 therefore always reachable.
@@ -28,6 +28,8 @@ PAGES = {
     "daily-details": "daily-details.html",
     "insights": "insights.html",
     "fav-p": "fav-p.html",
+    "loans": "loans.html",
+    "friends": "friends.html",
 }
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "templates")

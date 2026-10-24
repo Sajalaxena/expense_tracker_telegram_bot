@@ -38,6 +38,17 @@ class TestLoadConfigFromEnv:
         config = load_config_from_env()
         assert config.budgets == {}
 
+    def test_owner_chat_ids_default_allows_any_chat(self, required_env):
+        config = load_config_from_env()
+        assert config.owner_chat_ids == frozenset()
+        assert config.is_owner(123)
+
+    def test_owner_chat_ids_parsed(self, required_env, monkeypatch):
+        monkeypatch.setenv("OWNER_CHAT_IDS", "123, -456,junk,")
+        config = load_config_from_env()
+        assert config.owner_chat_ids == frozenset({123, -456})
+        assert config.is_owner(-456) and not config.is_owner(789)
+
     def test_custom_currency(self, required_env, monkeypatch):
         monkeypatch.setenv("CURRENCY", "$")
         config = load_config_from_env()

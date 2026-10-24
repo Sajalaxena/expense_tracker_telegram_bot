@@ -21,6 +21,12 @@ class AppConfig:
     auth_password: str = ""
     session_secret: str = ""
     cron_secret: str = ""
+    # Telegram chats allowed to see and update loans and the friends ledger.
+    # Empty = any chat (like expenses); set OWNER_CHAT_IDS to lock them down.
+    owner_chat_ids: frozenset = frozenset()
+
+    def is_owner(self, chat_id: int) -> bool:
+        return not self.owner_chat_ids or chat_id in self.owner_chat_ids
 
 
 def load_config_from_env() -> AppConfig:
@@ -28,7 +34,8 @@ def load_config_from_env() -> AppConfig:
 
     Required env vars: TELEGRAM_TOKEN, SUPABASE_URL, SUPABASE_KEY, WEBHOOK_SECRET
     Optional env vars: CURRENCY (default "₹"), MONTHLY_BUDGET (default 50000),
-                       BUDGETS (JSON string, default empty dict)
+                       BUDGETS (JSON string, default empty dict),
+                       OWNER_CHAT_IDS (comma-separated Telegram chat ids)
 
     Raises:
         ValueError: If any required environment variable is missing.
@@ -59,6 +66,11 @@ def load_config_from_env() -> AppConfig:
     except (ValueError, TypeError):
         monthly_budget = 50000
 
+    owner_chat_ids = frozenset(
+        int(part) for part in os.environ.get("OWNER_CHAT_IDS", "").replace(" ", "").split(",")
+        if part.lstrip("-").isdigit()
+    )
+
     return AppConfig(
         telegram_token=os.environ["TELEGRAM_TOKEN"],
         supabase_url=os.environ["SUPABASE_URL"],
@@ -72,6 +84,7 @@ def load_config_from_env() -> AppConfig:
         auth_password=os.environ.get("AUTH_PASSWORD", ""),
         session_secret=os.environ.get("SESSION_SECRET", ""),
         cron_secret=os.environ.get("CRON_SECRET", ""),
+        owner_chat_ids=owner_chat_ids,
     )
 
 
