@@ -61,6 +61,7 @@ Words that also describe ordinary spending (`gave`, `took`, `got`, `received`, `
 | `/sub` | List subscriptions and monthly cost |
 | `/loans` | Every loan with EMIs paid/left and the outstanding balance |
 | `/friends` | Who owes you and whom you owe |
+| `/myid` | This chat's id, for `OWNER_CHAT_IDS` |
 
 ### Daily job (22:00 IST)
 
@@ -100,7 +101,7 @@ Words that also describe ordinary spending (`gave`, `took`, `got`, `received`, `
 | `SESSION_SECRET` | for dashboard | Random string used to sign login cookies |
 | `GEMINI_API_KEY` | for AI | Photo/voice logging, Insights tips and chat |
 | `CRON_SECRET` | for daily job | Random string; Vercel sends it to `/api/cron` automatically |
-| `OWNER_CHAT_IDS` | | Comma-separated Telegram chat ids allowed to see and update loans and the friends ledger. If unset, any chat that messages the bot can. Send the bot a message and check `chat.id` in the webhook logs to find yours |
+| `OWNER_CHAT_IDS` | | Comma-separated Telegram chat ids allowed to see and update loans and the friends ledger. If unset, any chat that messages the bot can. Send `/myid` to your bot to get the id to use |
 | `TIMEZONE` | | Default `Asia/Kolkata`; decides what "today" means |
 | `CURRENCY` | | Default `₹` |
 | `MONTHLY_BUDGET` | | Default monthly budget (default `50000`); `/setbudget` and the dashboard override it |

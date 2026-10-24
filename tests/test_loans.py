@@ -360,3 +360,10 @@ def test_ai_context_lines():
     assert "Home Loan (HDFC): home loan; outstanding ₹18,00,000" in text
     assert "8.5% interest per year" in text
     assert "Rahul owes the user ₹500" in text
+
+
+def test_myid_command():
+    text = webhook._handle_command("/myid", CHAT, FakeDB(), make_config())
+    assert f"This chat's id: {CHAT}" in text and "isn't set yet" in text
+    assert "✅" in webhook._handle_command("/myid", CHAT, FakeDB(), make_config(owner_chat_ids=frozenset({CHAT})))
+    assert "🔒" in webhook._handle_command("/myid", CHAT, FakeDB(), make_config(owner_chat_ids=frozenset({7})))

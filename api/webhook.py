@@ -159,6 +159,8 @@ def _handle_command(text: str, chat_id: int, db: SupabaseDB, config) -> str:
             return _cmd_loans(chat_id, db, config)
         elif command == "/friends":
             return _cmd_friends(chat_id, db, config)
+        elif command == "/myid":
+            return _cmd_myid(chat_id, config)
         else:
             return (
                 "Unknown command. Use /help to see available commands."
@@ -230,7 +232,8 @@ def _cmd_help() -> str:
         "/removesub — remove a subscription\n"
         "/sub — list subscriptions\n"
         "/loans — loans, EMIs paid and left\n"
-        "/friends — money lent and borrowed"
+        "/friends — money lent and borrowed\n"
+        "/myid — this chat's id (for OWNER_CHAT_IDS)"
     )
 
 
@@ -514,6 +517,22 @@ def _cmd_friends(chat_id: int, db: SupabaseDB, config) -> str:
         print(f"Friends ledger unavailable: {exc}")
         return _MIGRATION_HINT
     return friends.friends_overview(entries, config.currency)
+
+
+def _cmd_myid(chat_id: int, config) -> str:
+    """Handle /myid — the chat id to put in OWNER_CHAT_IDS."""
+    if not config.owner_chat_ids:
+        status = "OWNER_CHAT_IDS isn't set yet, so any chat can see loans and friends."
+    elif config.is_owner(chat_id):
+        status = "✅ This chat is in OWNER_CHAT_IDS."
+    else:
+        status = "🔒 This chat is not in OWNER_CHAT_IDS."
+    return (
+        f"🆔 This chat's id: {chat_id}\n\n"
+        f"{status}\n"
+        f"To lock loans and friends to this chat, set OWNER_CHAT_IDS={chat_id} in Vercel "
+        f"(Settings → Environment Variables) and redeploy."
+    )
 
 
 _MIGRATION_HINT = (
