@@ -11,6 +11,7 @@ Always returns HTTP 200 to prevent Telegram retry storms.
 
 import hashlib
 import json
+import os
 import traceback
 import urllib.error
 from datetime import date, timedelta
@@ -521,8 +522,14 @@ def _cmd_friends(chat_id: int, db: SupabaseDB, config) -> str:
 
 def _cmd_myid(chat_id: int, config) -> str:
     """Handle /myid — the chat id to put in OWNER_CHAT_IDS."""
-    if not config.owner_chat_ids:
-        status = "OWNER_CHAT_IDS isn't set yet, so any chat can see loans and friends."
+    raw = os.environ.get("OWNER_CHAT_IDS")
+    if raw is None:
+        status = ("OWNER_CHAT_IDS isn't set in this deployment, so any chat can see loans "
+                  "and friends. If you've added it in Vercel, check it's enabled for "
+                  "Production and redeploy.")
+    elif not config.owner_chat_ids:
+        status = (f"OWNER_CHAT_IDS is set to {raw!r}, but that has no chat id in it. "
+                  f"Set it to just the number, e.g. {chat_id}.")
     elif config.is_owner(chat_id):
         status = "✅ This chat is in OWNER_CHAT_IDS."
     else:

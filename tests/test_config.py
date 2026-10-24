@@ -49,6 +49,11 @@ class TestLoadConfigFromEnv:
         assert config.owner_chat_ids == frozenset({123, -456})
         assert config.is_owner(-456) and not config.is_owner(789)
 
+    @pytest.mark.parametrize("raw", ['"123"', "'123'", " 123 ", "OWNER_CHAT_IDS=123", "123;"])
+    def test_owner_chat_ids_tolerates_pasting_mistakes(self, required_env, monkeypatch, raw):
+        monkeypatch.setenv("OWNER_CHAT_IDS", raw)
+        assert load_config_from_env().owner_chat_ids == frozenset({123})
+
     def test_custom_currency(self, required_env, monkeypatch):
         monkeypatch.setenv("CURRENCY", "$")
         config = load_config_from_env()

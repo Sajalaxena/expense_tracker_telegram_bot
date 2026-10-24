@@ -362,8 +362,11 @@ def test_ai_context_lines():
     assert "Rahul owes the user ₹500" in text
 
 
-def test_myid_command():
+def test_myid_command(monkeypatch):
+    monkeypatch.delenv("OWNER_CHAT_IDS", raising=False)
     text = webhook._handle_command("/myid", CHAT, FakeDB(), make_config())
-    assert f"This chat's id: {CHAT}" in text and "isn't set yet" in text
+    assert f"This chat's id: {CHAT}" in text and "isn't set in this deployment" in text
+    monkeypatch.setenv("OWNER_CHAT_IDS", "my id")
+    assert "has no chat id in it" in webhook._handle_command("/myid", CHAT, FakeDB(), make_config())
     assert "✅" in webhook._handle_command("/myid", CHAT, FakeDB(), make_config(owner_chat_ids=frozenset({CHAT})))
     assert "🔒" in webhook._handle_command("/myid", CHAT, FakeDB(), make_config(owner_chat_ids=frozenset({7})))

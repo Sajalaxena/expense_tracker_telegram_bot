@@ -29,6 +29,16 @@ class AppConfig:
         return not self.owner_chat_ids or chat_id in self.owner_chat_ids
 
 
+def parse_chat_ids(raw: str) -> frozenset:
+    """Chat ids from OWNER_CHAT_IDS, tolerating quotes, spaces and a pasted
+    "OWNER_CHAT_IDS=" prefix, e.g. '"123", -456' -> {123, -456}."""
+    raw = raw.strip()
+    if raw.upper().startswith("OWNER_CHAT_IDS="):
+        raw = raw.split("=", 1)[1]
+    parts = raw.replace('"', "").replace("'", "").replace(" ", "").replace(";", ",").split(",")
+    return frozenset(int(part) for part in parts if part.lstrip("-").isdigit())
+
+
 def load_config_from_env() -> AppConfig:
     """Load application configuration from Vercel environment variables.
 
@@ -66,10 +76,7 @@ def load_config_from_env() -> AppConfig:
     except (ValueError, TypeError):
         monthly_budget = 50000
 
-    owner_chat_ids = frozenset(
-        int(part) for part in os.environ.get("OWNER_CHAT_IDS", "").replace(" ", "").split(",")
-        if part.lstrip("-").isdigit()
-    )
+    owner_chat_ids = parse_chat_ids(os.environ.get("OWNER_CHAT_IDS", ""))
 
     return AppConfig(
         telegram_token=os.environ["TELEGRAM_TOKEN"],
