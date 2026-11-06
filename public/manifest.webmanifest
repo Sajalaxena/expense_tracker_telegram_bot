@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Tracksy — Expense Tracker",
-  "short_name": "Tracksy",
+  "name": "Spendyy — Expense Tracker",
+  "short_name": "Spendyy",
   "description": "Track expenses, subscriptions and get AI money tips.",
   "start_url": "/dashboard.html",
   "scope": "/",

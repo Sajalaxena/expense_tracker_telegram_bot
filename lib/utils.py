@@ -1,4 +1,4 @@
-"""Utility functions for the Tracksy expense tracker."""
+"""Utility functions for the Spendyy expense tracker."""
 
 
 def indian_format(amount: float, currency: str = "₹") -> str:

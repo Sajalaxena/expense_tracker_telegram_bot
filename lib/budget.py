@@ -1,4 +1,4 @@
-"""Budget management helpers for Tracksy (serverless version).
+"""Budget management helpers for Spendyy (serverless version).
 
 This module provides budget-checking logic without any file-persistence.
 Budget configuration lives in environment variables (parsed via AppConfig).

@@ -174,7 +174,7 @@ def _handle_command(text: str, chat_id: int, db: SupabaseDB, config) -> str:
 def _cmd_start() -> str:
     """Handle /start — welcome message with usage instructions."""
     return (
-        "👋 Welcome to Tracksy!\n\n"
+        "👋 Welcome to Spendyy!\n\n"
         "I help you track expenses right from Telegram.\n\n"
         "Just send me a message like:\n"
         "• \"swiggy 450\" — logs ₹450 under food\n"
@@ -200,7 +200,7 @@ def _cmd_start() -> str:
 def _cmd_help() -> str:
     """Handle /help — formatting examples and command list."""
     return (
-        "📖 How to use Tracksy:\n\n"
+        "📖 How to use Spendyy:\n\n"
         "Send a message with an amount and optional description:\n\n"
         "Examples:\n"
         "• \"500 chai\" — ₹500, food\n"

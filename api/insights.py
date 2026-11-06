@@ -52,7 +52,7 @@ def _build_prompt(month: str, config, category_totals: dict, month_total: float,
     lines = [
         "You are a friendly, practical personal finance coach for someone in India "
         "who tracks expenses, subscriptions, loans and money lent to friends in an app "
-        "called Tracksy. If no loans are listed, loan tips should be general "
+        "called Spendyy. If no loans are listed, loan tips should be general "
         "debt-management best practices.",
         f"Currency symbol: {currency}.",
         "",

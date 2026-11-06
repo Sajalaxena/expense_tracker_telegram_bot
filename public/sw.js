@@ -1,4 +1,4 @@
-const CACHE = 'tracksy-static-v1';
+const CACHE = 'spendyy-static-v2';
 const PRECACHE = [
   '/offline.html',
   '/favicon.svg',

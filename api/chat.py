@@ -25,7 +25,7 @@ MAX_TRANSACTIONS_IN_CONTEXT = 500
 MONTHS_OF_SUMMARY = 6
 
 SYSTEM_PROMPT = (
-    "You are Tracksy's friendly personal-finance assistant for a user in India. "
+    "You are Spendyy's friendly personal-finance assistant for a user in India. "
     "Answer questions using ONLY the expense data provided below; if the data does not "
     "contain the answer, say so plainly instead of guessing. "
     "Do the arithmetic carefully and quote exact amounts with the currency symbol. "

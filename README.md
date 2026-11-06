@@ -1,4 +1,4 @@
-# Tracksy — Telegram Expense Tracker
+# Spendyy — Telegram Expense Tracker
 
 Log spending by messaging a Telegram bot in plain English, by photo, or by voice note. Track loans and EMIs, and money lent to or borrowed from friends. View analytics, AI tips and an AI chat on a password-protected web dashboard. Runs as Vercel serverless functions with data in Supabase.
 

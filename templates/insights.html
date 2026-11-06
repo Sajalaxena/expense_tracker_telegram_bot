@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <script src="/pwa.js" defer></script>
-<title>Tracksy — AI Money Coach</title>
+<title>Spendyy — AI Money Coach</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -301,12 +301,12 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
     </div>
   </div>
 
-  <section class="chat-card" id="chat" aria-label="Chat with Tracksy AI">
+  <section class="chat-card" id="chat" aria-label="Chat with Spendyy AI">
     <div class="chat-header">
       <div class="who">
         <div class="chat-avatar">🤖</div>
         <div>
-          <div class="title">Ask Tracksy AI</div>
+          <div class="title">Ask Spendyy AI</div>
           <div class="status">Answers from your own expense data</div>
         </div>
       </div>
@@ -677,7 +677,7 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
   }
 
   function showWelcome() {
-    var html = '<p>Hi! 👋 I can answer questions about your spending, subscriptions and savings using your own Tracksy data. Try one of these:</p>' +
+    var html = '<p>Hi! 👋 I can answer questions about your spending, subscriptions and savings using your own Spendyy data. Try one of these:</p>' +
       '<div class="chat-suggestions">';
     for (var i = 0; i < SUGGESTIONS.length; i++) {
       html += '<button type="button" class="chip">' + esc(SUGGESTIONS[i]) + '</button>';
@@ -721,7 +721,7 @@ header .subtitle { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
     autoGrow();
     setBusy(true);
 
-    var typing = addMessage('ai', '<div class="typing" aria-label="Tracksy AI is typing"><span></span><span></span><span></span></div>');
+    var typing = addMessage('ai', '<div class="typing" aria-label="Spendyy AI is typing"><span></span><span></span><span></span></div>');
 
     fetch('/api/chat', {
       method: 'POST',

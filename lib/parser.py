@@ -26,20 +26,22 @@ class ParseError(Exception):
 
 # Editable mapping: category name → list of keywords that trigger that category
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "travel": ["ola", "uber", "metro", "rapido", "auto", "cab", "bus", "train", "flight", "petrol", "diesel", "parking", "toll", "rickshaw", "trip", "travel"],
+    "travel": ["ola", "uber", "metro", "rapido", "auto", "cab", "bus", "train", "flight", "petrol", "diesel", "parking", "toll", "rickshaw", "travel"],
     "food": ["swiggy", "zomato", "chai", "coffee", "lunch", "dinner", "breakfast", "snack", "restaurant", "biryani", "food"],
     "groceries": ["blinkit", "zepto", "bigbasket", "dmart", "vegetables", "fruits", "grocery", "milk", "groceries"],
     "shopping": ["amazon", "flipkart", "myntra", "ajio", "meesho", "nykaa", "tatacliq", "croma", "reliance", "shopping"],
     "lifestyle": ["salon", "spa", "haircut", "parlour", "skincare", "perfume", "makeup", "facial", "massage", "grooming", "lifestyle"],
     "clothes": ["shirt", "jeans", "shoes", "clothing", "jacket", "kurta", "saree", "dress", "clothes"],
     "rent": ["rent", "house", "flat", "apartment", "pg"],
-    "bills": ["electricity", "wifi", "internet", "mobile", "recharge", "phone", "water", "gas", "bills"],
+    "bills": ["wifi", "internet", "mobile", "recharge", "phone", "bills"],
+    "utilities": ["electricity", "water", "gas", "lpg", "cylinder", "utility", "utilities"],
     "entertainment": ["movie", "gaming", "concert", "event", "ticket", "outing", "party", "drinks", "entertainment"],
     "subscriptions": [
         "netflix", "spotify", "gym", "prime", "hotstar", "youtube",
         "disney", "hulu", "apple", "icloud", "dropbox", "notion",
         "chatgpt", "github", "jio", "airtel", "vi", "subscriptions"
     ],
+    "trip": ["trip", "vacation", "holiday", "hotel", "airbnb", "resort", "hostel", "sightseeing", "makemytrip"],
     "investments": ["sip", "etf", "stocks", "mutual", "fund", "ppf", "nps", "crypto", "investments"],
     "health": ["medicine", "doctor", "hospital", "pharmacy", "lab", "test", "dental", "health"],
     "education": ["course", "book", "udemy", "tutorial", "exam", "college", "fee", "education"],

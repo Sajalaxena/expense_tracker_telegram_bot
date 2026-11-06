@@ -1,4 +1,4 @@
-"""Cookie-based session authentication for the Tracksy web UI.
+"""Cookie-based session authentication for the Spendyy web UI.
 
 A session is a `{expiry}.{hmac}` token, HMAC-SHA256 signed with SESSION_SECRET,
 stored in an HttpOnly cookie. There is no server-side session store — the
